@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
+<title>電気工作物点検</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=BIZ+UDGothic:wght@400;700&display=swap');
+:root{
+  --bg:#f0f2f5;--card:#fff;--bd:#d0d5dd;--bdl:#e8eaed;
+  --tx:#1a1d23;--t2:#4a5568;--t3:#8a93a2;
+  --ac:#1a56db;--acl:#e8f0fe;
+  --ok:#0f766e;--okb:#f0fdf9;--okbd:#99f6e4;
+  --wn:#b45309;--wnb:#fffbeb;
+  --er:#b91c1c;--erb:#fef2f2;--erbd:#fca5a5;
+  --hd:#1e3a5f;--r:8px;--sh:0 1px 3px rgba(0,0,0,.08);
+  --pu:#6d28d9;--pub:#f5f3ff;--pubd:#c4b5fd;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'BIZ UDGothic',sans-serif;background:var(--bg);color:var(--tx);font-size:14px;line-height:1.6;min-height:100vh}
+.screen{display:none;min-height:100vh}.screen.active{display:block}
+/* topbar */
+.topbar{background:var(--hd);color:#fff;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.t1{font-size:14px;font-weight:700}.t2{font-size:11px;opacity:.7;margin-top:1px}
+.tbtn{border:none;border-radius:6px;padding:7px 13px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap}
+.tbtn.pdf{background:#f59e0b;color:#1c1917}.tbtn.bk{background:rgba(255,255,255,.15);color:#fff}
+/* tabs/prog */
+.tabs{background:#fff;border-bottom:1px solid var(--bdl);display:flex;overflow-x:auto;scrollbar-width:none;position:sticky;top:52px;z-index:90}
+.tabs::-webkit-scrollbar{display:none}
+.tab{padding:9px 13px;font-size:12px;font-weight:500;color:var(--t3);cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;flex-shrink:0;transition:all .15s}
+.tab.active{color:var(--ac);border-bottom-color:var(--ac)}.tab.done{color:var(--ok)}.tab.done::after{content:' ✓'}
+.prog{background:#2d4e7a;padding:5px 14px;display:flex;align-items:center;gap:8px}
+.prog-tr{flex:1;height:4px;background:rgba(255,255,255,.2);border-radius:2px;overflow:hidden}
+.prog-fl{height:100%;background:#f59e0b;border-radius:2px;transition:width .4s;width:0%}
+.prog-lb{color:rgba(255,255,255,.8);font-size:11px;white-space:nowrap}
+/* layout */
+.wrap{padding:12px;max-width:640px;margin:0 auto}
+.main{padding:10px;max-width:640px;margin:0 auto}
+.step{display:none}.step.active{display:block}
+/* card */
+.card{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);margin-bottom:10px;overflow:hidden}
+.chdr{background:var(--hd);color:#fff;padding:9px 14px;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:space-between}
+.chdr .sub{font-weight:400;font-size:11px;opacity:.7}
+.cbdy{padding:12px}
+/* section labels */
+.slb{display:inline-block;font-size:11px;font-weight:700;padding:3px 10px;border-radius:6px;margin:10px 0 8px}
+.slb.recv{color:var(--hd);background:var(--acl);border:1px solid #bfdbfe}
+.slb.send{color:var(--wn);background:var(--wnb);border:1px solid #fcd34d}
+.slb.tr{color:var(--ok);background:var(--okb);border:1px solid var(--okbd)}
+.slb.cap{color:var(--pu);background:var(--pub);border:1px solid var(--pubd)}
+.slb.mot{color:var(--er);background:var(--erb);border:1px solid var(--erbd)}
+.slb.temp{color:#374151;background:#f1f5f9;border:1px solid var(--bd)}
+/* fields */
+.f{margin-bottom:10px}.f:last-child{margin-bottom:0}
+.f label{display:block;font-size:11px;font-weight:700;color:var(--t2);margin-bottom:3px}
+.f label .u{font-weight:400;color:var(--t3)}
+.f2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}.f2 .f{margin-bottom:0}
+.f3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px}.f3 .f{margin-bottom:0}
+input[type=text],input[type=number],input[type=date],input[type=time],select,textarea{
+  width:100%;padding:9px 11px;border:1px solid var(--bd);border-radius:6px;font-size:15px;font-family:inherit;background:#fff;color:var(--tx);-webkit-appearance:none;transition:border-color .15s,box-shadow .15s}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--ac);box-shadow:0 0 0 3px rgba(26,86,219,.1)}
+input[readonly]{background:#f8fafc;color:var(--t2);border-color:var(--bdl)}
+.atag{font-size:10px;color:var(--ok);font-weight:700;margin-bottom:2px}
+/* computed */
+.cv{padding:9px 11px;border-radius:6px;font-size:15px;font-weight:700;text-align:center;background:var(--okb);border:1px solid var(--okbd);color:var(--ok);min-height:42px;display:flex;align-items:center;justify-content:center}
+.cv.neu{background:#f8fafc;border-color:var(--bd);color:var(--t2)}
+.cv.wn{background:var(--wnb);border-color:#fcd34d;color:var(--wn)}
+.cv.er{background:var(--erb);border-color:var(--erbd);color:var(--er)}
+hr.dv{border:none;border-top:1px solid var(--bdl);margin:12px 0}
+/* eq blocks */
+.eq-block{border:1px solid var(--bdl);border-radius:6px;padding:10px;margin-bottom:10px;background:#fafbfc}
+.eq-block:last-child{margin-bottom:0}
+.eq-name{font-size:12px;font-weight:700;color:var(--hd);margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--bdl)}
+.eq-sub{font-weight:400;color:var(--t3);font-size:11px}
+.send-block{border:1px solid #fcd34d;border-radius:6px;padding:10px;margin-bottom:8px;background:var(--wnb)}
+.send-nm{font-size:12px;font-weight:700;color:var(--wn);margin-bottom:8px}
+.cap-block{border:1px solid var(--pubd);border-radius:6px;padding:10px;margin-bottom:10px;background:var(--pub)}
+.cap-block:last-child{margin-bottom:0}
+.cap-nm{font-size:12px;font-weight:700;color:var(--pu);margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--pubd)}
+.mot-block{border:1px solid var(--erbd);border-radius:6px;padding:10px;margin-bottom:10px;background:var(--erb)}
+.mot-block:last-child{margin-bottom:0}
+.mot-nm{font-size:12px;font-weight:700;color:var(--er);margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--erbd)}
+.temp-block{border:1px solid var(--bd);border-radius:6px;padding:10px;margin-bottom:8px;background:#f8fafc}
+.temp-block:last-child{margin-bottom:0}
+.temp-nm{font-size:11px;font-weight:700;color:var(--t2);margin-bottom:8px}
+/* alert */
+.alrt{display:none;background:var(--erb);border:1px solid var(--erbd);border-radius:6px;padding:8px 12px;font-size:12px;color:var(--er);margin-bottom:10px;font-weight:500}
+.alrt.show{display:block}
+/* leak */
+.leak-box{border:1px solid var(--bd);border-radius:6px;padding:8px;margin-top:5px;background:#f8fafc}
+.leak-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.leak-val{font-size:16px;font-weight:700}
+.leak-diff{font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px}
+.leak-diff.up{background:var(--erb);color:var(--er)}.leak-diff.dn{background:var(--okb);color:var(--ok)}.leak-diff.eq{background:#f1f5f9;color:var(--t3)}
+canvas.spark{display:block;width:100%;height:36px}
+/* HOME site cards */
+.site-card{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:14px 16px;margin-bottom:10px;display:flex;align-items:flex-start;justify-content:space-between;border:2px solid transparent;gap:12px}
+.site-card:hover{border-color:var(--ac)}
+.site-nm{font-size:15px;font-weight:700;margin-bottom:4px}
+.site-info{font-size:11px;color:var(--t2);line-height:2}
+.stag{display:inline-block;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;margin-right:3px;margin-bottom:2px}
+.stag.bl{background:var(--acl);color:var(--ac)}.stag.ok{background:var(--okb);color:var(--ok)}
+.stag.pu{background:var(--pub);color:var(--pu)}.stag.rd{background:var(--erb);color:var(--er)}
+.site-btns{display:flex;flex-direction:column;gap:5px;flex-shrink:0}
+/* EDIT screen */
+.edit-sect{margin-bottom:16px}
+.edit-sect-hdr{font-size:12px;font-weight:700;color:var(--hd);margin-bottom:8px;letter-spacing:.04em}
+.dai-card{background:var(--card);border:1px solid var(--bd);border-radius:var(--r);margin-bottom:10px;overflow:hidden}
+.dai-card-hdr{background:#f1f5f9;padding:8px 12px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--bdl)}
+.dai-card-body{padding:10px 12px}
+.eq-row{display:grid;grid-template-columns:1fr 80px 90px auto;gap:6px;align-items:center;margin-bottom:6px}
+.eq-row input,.eq-row select{font-size:13px;padding:6px 8px}
+.eq-row-cap{display:grid;grid-template-columns:1fr 80px auto auto;gap:6px;align-items:center;margin-bottom:6px}
+.eq-row-mot{display:grid;grid-template-columns:1fr 90px auto auto;gap:6px;align-items:center;margin-bottom:6px}
+.eq-row-send{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center;margin-bottom:6px}
+.eq-lbl{font-size:10px;font-weight:700;color:var(--t3);margin-bottom:4px;letter-spacing:.04em}
+/* visual check */
+.vct{width:100%;border-collapse:collapse}
+.vct th{background:#f1f5f9;padding:6px 10px;font-size:11px;font-weight:700;color:var(--t2);text-align:left;border-bottom:1px solid var(--bd)}
+.vct td{padding:7px 10px;border-bottom:1px solid var(--bdl);vertical-align:middle}
+.vct tr:last-child td{border-bottom:none}
+.vct-cat{font-size:10px;font-weight:700;color:var(--t3);padding:4px 10px;background:#f8fafc;border-bottom:1px solid var(--bdl);letter-spacing:.05em}
+.rbg{display:flex;gap:3px}
+.rb{flex:1;padding:8px 2px;border:1px solid var(--bd);border-radius:5px;background:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;text-align:center;transition:all .12s}
+.rb[data-v="○"].on{background:#dcfce7;border-color:#16a34a;color:#15803d}
+.rb[data-v="△"].on{background:#fef9c3;border-color:#ca8a04;color:#92400e}
+.rb[data-v="×"].on{background:#fee2e2;border-color:#dc2626;color:#991b1b}
+.rb[data-v="－"].on{background:#f1f5f9;border-color:#94a3b8;color:#475569}
+.badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;border-radius:9px;font-size:10px;font-weight:700;margin-left:5px;padding:0 4px}
+.badge.w{background:#ca8a04;color:#fff}.badge.e{background:var(--er);color:#fff}
+/* issues */
+.iss{border:1px solid var(--bd);border-radius:6px;padding:10px;margin-bottom:8px}
+.iss.done{opacity:.5;background:#f8fafc}
+.iss-hd{display:flex;align-items:flex-start;gap:8px;margin-bottom:6px}
+.iss-num{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;border-radius:12px;font-size:11px;font-weight:700;flex-shrink:0;margin-top:1px;padding:0 5px}
+.iss-num.t{background:#ca8a04;color:#fff}.iss-num.x{background:var(--er);color:#fff}.iss-num.d{background:#94a3b8;color:#fff}
+.iss-ac{display:flex;gap:4px;flex-shrink:0}
+.btn-rs{padding:3px 8px;font-size:11px;border:1px solid var(--ok);background:var(--okb);color:var(--ok);border-radius:4px;cursor:pointer;font-family:inherit;font-weight:700}
+.btn-rs.u{border-color:var(--bd);background:#f8fafc;color:var(--t3)}
+.btn-dl{padding:3px 8px;font-size:11px;border:1px solid var(--erbd);background:var(--erb);color:var(--er);border-radius:4px;cursor:pointer;font-family:inherit;font-weight:700}
+.iss-meta{font-size:10px;color:var(--t3);margin-top:4px}
+.add-iss{width:100%;padding:10px;border:1px dashed var(--bd);border-radius:6px;background:none;font-size:13px;color:var(--t2);cursor:pointer;font-family:inherit;margin-top:4px}
+.add-iss:hover{background:var(--acl);border-color:var(--ac);color:var(--ac)}
+/* nav */
+.nav{display:flex;gap:10px;margin-top:14px;margin-bottom:24px}
+.btn-pv,.btn-nx{flex:1;padding:13px;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit}
+.btn-pv{background:#e2e8f0;color:var(--t2)}.btn-nx{background:var(--ac);color:#fff}
+.bsm{padding:5px 10px;font-size:12px;border-radius:5px;border:1px solid var(--bd);background:#f8fafc;cursor:pointer;font-family:inherit;font-weight:700;white-space:nowrap}
+.bsm.gr{border-color:var(--okbd);background:var(--okb);color:var(--ok)}
+.bsm.bl{border-color:#bfdbfe;background:var(--acl);color:var(--ac)}
+.bsm.rd{border-color:var(--erbd);background:var(--erb);color:var(--er)}
+.btn-add{width:100%;padding:13px;border:2px dashed var(--bd);border-radius:var(--r);background:none;font-size:14px;font-weight:700;color:var(--t2);cursor:pointer;font-family:inherit;margin-bottom:10px}
+.btn-add:hover{background:var(--acl);border-color:var(--ac);color:var(--ac)}
+.btn-add-sm{padding:6px 12px;border:1px dashed var(--bd);border-radius:6px;background:none;font-size:12px;color:var(--t2);cursor:pointer;font-family:inherit;margin-top:4px;width:100%}
+.btn-add-sm:hover{background:var(--acl);border-color:var(--ac);color:var(--ac)}
+/* complete */
+.comp{background:var(--card);border-radius:var(--r);padding:32px 20px;text-align:center;box-shadow:var(--sh)}
+.comp-ic{font-size:48px;margin-bottom:12px}.comp-tt{font-size:20px;font-weight:700;margin-bottom:8px;color:var(--ok)}
+.comp-sb{color:var(--t2);font-size:13px;margin-bottom:24px;white-space:pre-line}
+.btn-big{display:block;width:100%;padding:15px;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:10px}
+.btn-big.pri{background:var(--ac);color:#fff}.btn-big.sec{background:#e2e8f0;color:var(--t2)}
+textarea{resize:vertical;line-height:1.5}
+@media print{
+  .topbar,.prog,.tabs,.nav,.no-print{display:none!important}
+  .screen{display:block!important}.step{display:block!important}
+  .card{box-shadow:none;border:1px solid #ccc;page-break-inside:avoid}
+  .main{max-width:100%;padding:0}
+  .chdr{background:var(--hd)!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .rb:not(.on){display:none}.add-iss,.btn-rs,.btn-dl{display:none!important}
+  canvas{display:none!important}
+  #scrHome,#scrEdit{display:none!important}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ HOME ═══ -->
+<div class="screen active" id="scrHome">
+  <div class="topbar">
+    <div><div class="t1">電気工作物点検</div><div class="t2" id="officeName"></div></div>
+    <button class="tbtn bk no-print" onclick="showScr('scrSettings')" style="font-size:12px;padding:5px 10px">⚙ 設定</button>
+  </div>
+  <div class="wrap" style="padding-top:16px">
+    <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:8px">物件を選択してください</div>
+    <input type="text" id="siteSearch" placeholder="物件名で検索…" oninput="renderHome()" style="margin-bottom:12px;font-size:14px;padding:9px 12px;border:1px solid var(--bd);border-radius:8px;width:100%;background:#fff">
+    <div id="siteCards"></div>
+    <button class="btn-add no-print" onclick="openNewSite()">＋ 新規物件を追加</button>
+    <button class="btn-add no-print" style="border-color:var(--erbd);color:var(--er);margin-top:0" onclick="resetStorage()">⚠ データをリセット（表示不具合時）</button>
+  </div>
+</div>
+
+<!-- ═══ SETTINGS ═══ -->
+<div class="screen" id="scrSettings">
+  <div class="topbar">
+    <div><div class="t1">設定</div></div>
+    <button class="tbtn bk no-print" onclick="showScr('scrHome')">← 戻る</button>
+  </div>
+  <div class="wrap" style="padding-top:16px">
+    <div class="card"><div class="chdr">事務所・管理者情報</div><div class="cbdy">
+      <div class="f"><label>事務所名（トップバーに表示）</label>
+        <input type="text" id="settingOfficeName" placeholder="例：どうこ電気保安管理事務所"></div>
+      <div class="f"><label>管理技術者名（点検時に自動入力）</label>
+        <input type="text" id="settingTechName" placeholder=""></div>
+      <button class="btn-nx" style="width:100%;padding:12px;margin-top:4px" onclick="saveSettings()">保存</button>
+    </div></div>
+  </div>
+</div>
+
+<!-- ═══ EDIT ═══ -->
+<div class="screen" id="scrEdit">
+  <div class="topbar">
+    <div><div class="t1" id="editTitle">設備登録</div><div class="t2">変台・設備を登録してください</div></div>
+    <button class="tbtn bk no-print" onclick="showScr('scrHome')">← 戻る</button>
+  </div>
+  <div class="wrap" style="padding-top:12px" id="editWrap"></div>
+</div>
+
+<!-- ═══ INSPECTION ═══ -->
+<div class="screen" id="scrInsp">
+  <div class="topbar">
+    <div><div class="t1" id="inspTitle">点検中</div><div class="t2" id="inspSub">-</div></div>
+    <button class="tbtn pdf" onclick="window.print()">PDF</button>
+  </div>
+  <div class="prog"><div class="prog-tr"><div class="prog-fl" id="progFl"></div></div><div class="prog-lb" id="progLb">0完了</div></div>
+  <div class="tabs" id="tabBar"></div>
+  <div class="main" id="stepWrap"></div>
+</div>
+
+<script>
+'use strict';
+// ══════════════════════════════════════════
+// PRESET（ストレージに関係なく毎回マージ）
+// ══════════════════════════════════════════
+var PRESET = [
+  {id:'toyoeiKagaku',name:'豊栄化学㈱ 第2工場',mult:2400,hasGenset:true,dais:[
+    {id:'d1',name:'受電変台',sends:[],
+     trs:[{id:'t1',name:'③:200V №2',phase:'三相',kva:300},{id:'t2',name:'④:200V №1',phase:'三相',kva:300},{id:'t3',name:'⑤:電灯',phase:'単相',kva:100},{id:'t4',name:'⑦:400V №1',phase:'三相',kva:750},{id:'t5',name:'⑦:400V №2',phase:'三相',kva:750},{id:'t6',name:'⑩:400V動力',phase:'三相',kva:500}],
+     caps:[{id:'c1',name:'⑨:SR,SC',kvar:160,hasSR:true},{id:'c2',name:'⑧:SC',kvar:250,hasSR:false}],
+     motors:[]}
+  ]},
+  {id:'ellife',name:'エルアライフ',mult:10,hasGenset:true,dais:[
+    {id:'d1',name:'受電変台',sends:[],
+     trs:[{id:'t1',name:'電灯No.1',phase:'単相',kva:100},{id:'t2',name:'電灯No.2',phase:'単相',kva:100},{id:'t3',name:'動力',phase:'三相',kva:100}],
+     caps:[{id:'c1',name:'SR,SC',kvar:36,hasSR:true}],
+     motors:[]}
+  ]},
+  {id:'hekinan',name:'㈱豊栄商会 碧南工場',mult:3600,hasGenset:false,dais:[
+    {id:'d1',name:'受電第1変台',sends:[{id:'s1',name:'第2変台への送り'},{id:'s2',name:'第3変台への送り'}],
+     trs:[{id:'t1',name:'E:200V動力',phase:'三相',kva:1000},{id:'t2',name:'D:200V動力',phase:'三相',kva:1500},{id:'t3',name:'C:400V動力',phase:'三相',kva:1000},{id:'t4',name:'B:200V動力',phase:'三相',kva:500},{id:'t5',name:'A:電灯',phase:'単相',kva:100}],
+     caps:[{id:'c1',name:'SR,SC',kvar:300,hasSR:true}],motors:[]},
+    {id:'d2',name:'第2変台',sends:[],
+     trs:[{id:'t6',name:'A:400V動力',phase:'三相',kva:1000},{id:'t7',name:'B:200V動力',phase:'三相',kva:300},{id:'t8',name:'C:電灯',phase:'単相',kva:50},{id:'t9',name:'D:200V動力',phase:'三相',kva:500}],
+     caps:[{id:'c2',name:'SR,SC',kvar:400,hasSR:true}],motors:[]},
+    {id:'d3',name:'第3変台',sends:[],
+     trs:[{id:'t10',name:'③:電灯',phase:'単相',kva:100},{id:'t11',name:'④:200V動力',phase:'三相',kva:500}],
+     caps:[{id:'c3',name:'SR,SC',kvar:300,hasSR:true}],motors:[]}
+  ]},
+  {id:'honsha',name:'㈱豊栄商会 本社工場',mult:1,hasGenset:false,dais:[
+    {id:'d1',name:'第1変台',sends:[{id:'s1',name:'第2変台への送り'}],
+     trs:[{id:'t1',name:'A:電灯',phase:'単相',kva:150},{id:'t2',name:'B:アルミ第1',phase:'三相',kva:750},{id:'t3',name:'D:アルミ第2',phase:'三相',kva:750}],
+     caps:[{id:'c1',name:'SR,SC No.1',kvar:250,hasSR:true},{id:'c2',name:'SR,SC No.2',kvar:250,hasSR:true},{id:'c3',name:'SR,SC No.3',kvar:200,hasSR:true},{id:'c4',name:'SR,SC No.4',kvar:250,hasSR:true}],
+     motors:[]},
+    {id:'d2',name:'第2変台',sends:[],
+     trs:[{id:'t4',name:'②:200V動力',phase:'三相',kva:200},{id:'t5',name:'A:400V動力',phase:'三相',kva:1000}],
+     caps:[{id:'c5',name:'SR,SC',kvar:200,hasSR:true}],motors:[]}
+  ]},
+  {id:'akashi',name:'㈱豊栄商会 明石工場',mult:3600,hasGenset:false,dais:[
+    {id:'d1',name:'受電変台(第3工場)',sends:[{id:'s1',name:'第1変台への送り'},{id:'s2',name:'第2変台への送り'},{id:'s3',name:'第3変台への送り'}],
+     trs:[{id:'t1',name:'電灯',phase:'単相',kva:30}],caps:[],motors:[]},
+    {id:'d2',name:'第1変台(第3工場)',sends:[],
+     trs:[{id:'t2',name:'脱亜鉛400V',phase:'三相',kva:1500},{id:'t3',name:'脱亜鉛200V',phase:'三相',kva:1500},{id:'t4',name:'電灯',phase:'単相',kva:50}],
+     caps:[{id:'c1',name:'400V SR,SC',kvar:500,hasSR:true},{id:'c2',name:'灯動 SR,SC',kvar:500,hasSR:true}],
+     motors:[{id:'m1',name:'6.6kVモーター',kva:1187.5}]},
+    {id:'d3',name:'第2変台(第3工場)',sends:[],
+     trs:[{id:'t5',name:'ブリケット400V',phase:'三相',kva:1500},{id:'t6',name:'200V動力',phase:'三相',kva:500},{id:'t7',name:'電灯',phase:'単相',kva:50}],
+     caps:[{id:'c3',name:'SR,SC',kvar:200,hasSR:true}],motors:[]},
+    {id:'d4',name:'第3変台(駐車場)',sends:[{id:'s4',name:'第5変台への送り'}],trs:[],caps:[],motors:[]},
+    {id:'d5',name:'第4変台(第5工場)',sends:[],
+     trs:[{id:'t8',name:'電灯',phase:'単相',kva:50},{id:'t9',name:'200V動力',phase:'三相',kva:300},{id:'t10',name:'温調器400V',phase:'三相',kva:500}],
+     caps:[],motors:[]},
+    {id:'d6',name:'第5変台(技術C)',sends:[],
+     trs:[{id:'t11',name:'電灯',phase:'単相',kva:100},{id:'t12',name:'200V動力',phase:'三相',kva:30}],
+     caps:[{id:'c4',name:'SC',kvar:38.3,hasSR:false}],motors:[]}
+  ]}
+];
+
+// ══════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════
+var sites=[], curId=null, editSiteId=null;
+var vcState={}, issues=[], issSeq=1;
+var stepDefs=[], stepDone=[], leakHist={};
+var VC_GROUPS=[
+  {cat:'電線路',items:['開閉器','支持物','電線','ケーブル','避雷器']},
+  {cat:'キュービクル・電気室',items:['計器用変成器','開閉器・断路器','電力ヒューズ','遮断器','継電器・計器','碍子類','配線・電線支持物','変圧器','高圧コンデンサ','高圧リアクトル','接地装置','絶縁監視装置','施錠等']},
+  {cat:'使用場所',items:['動力回路','電灯回路','使用機器','問診の結果']}
+];
+var VC_KEY_MAP={
+  '開閉器':'k01','支持物':'k02','電線':'k03','ケーブル':'k04','避雷器':'k05',
+  '計器用変成器':'k06','開閉器・断路器':'k07','電力ヒューズ':'k08','遮断器':'k09',
+  '継電器・計器':'k10','碍子類':'k11','配線・電線支持物':'k12','変圧器':'k13',
+  '高圧コンデンサ':'k14','高圧リアクトル':'k15','接地装置':'k16','絶縁監視装置':'k17',
+  '施錠等':'k18','動力回路':'k19','電灯回路':'k20','使用機器':'k21','問診の結果':'k22'
+};
+function vcKey(item){ return VC_KEY_MAP[item]||('kx'+item.length); }
+
+// ══════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════
+// iOS Safari ローカルファイルでlocalStorageが使えない場合のフォールバック
+var LS = (function(){
+  var mem = {};
+  var ok = false;
+  try { localStorage.setItem('_t','1'); localStorage.removeItem('_t'); ok=true; } catch(e){}
+  return {
+    get: function(k){ try{ return ok ? localStorage.getItem(k) : (mem[k]||null); }catch(e){ return mem[k]||null; } },
+    set: function(k,v){ try{ if(ok) localStorage.setItem(k,v); else mem[k]=v; }catch(e){ mem[k]=v; } },
+    del: function(k){ try{ if(ok) localStorage.removeItem(k); else delete mem[k]; }catch(e){ delete mem[k]; } },
+    clear: function(){ try{ if(ok) localStorage.clear(); mem={}; }catch(e){ mem={}; } }
+  };
+})();
+
+window.onload = function(){
+  loadStorage();
+  renderHome();
+};
+
+function loadStorage(){
+  // プリセットは必ず読み込む（localStorage不要）
+  sites = JSON.parse(JSON.stringify(PRESET));
+  // 追加物件をマージ
+  try{
+    var s=LS.get('v7_extra_sites');
+    if(s){
+      var stored=JSON.parse(s);
+      stored.forEach(function(st){
+        if(!sites.find(function(x){ return x.id===st.id; })) sites.push(st);
+      });
+    }
+  }catch(e){}
+  // 漏洩履歴
+  try{ var h=LS.get('v7_leak'); if(h) leakHist=JSON.parse(h); }catch(e){}
+  // 事務所名
+  var name = LS.get('v7_office_name')||'';
+  var el=document.getElementById('officeName'); if(el) el.textContent=name;
+  var inp=document.getElementById('settingOfficeName'); if(inp) inp.value=name;
+  // 管理技術者名
+  var techName = LS.get('v7_tech_name')||'';
+  var tinp=document.getElementById('settingTechName'); if(tinp) tinp.value=techName;
+}
+
+function saveSettings(){
+  var name=(document.getElementById('settingOfficeName')||{}).value||'';
+  LS.set('v7_office_name', name);
+  var el=document.getElementById('officeName'); if(el) el.textContent=name;
+  var techName=(document.getElementById('settingTechName')||{}).value||'';
+  LS.set('v7_tech_name', techName);
+  showScr('scrHome');
+}
+
+function saveExtraSites(){
+  var extra = sites.filter(function(s){
+    return !PRESET.find(function(p){ return p.id===s.id; });
+  });
+  LS.set('v7_extra_sites', JSON.stringify(extra));
+}
+
+function resetStorage(){
+  if(!confirm('全保存データをリセットします。よろしいですか？')) return;
+  LS.clear();
+  location.reload();
+}
+
+function calcCap(site){
+  var trKva=0, motKva=0;
+  site.dais.forEach(function(d){
+    (d.trs||[]).forEach(function(t){ trKva+=t.kva; });
+    (d.motors||[]).forEach(function(m){ motKva+=m.kva; });
+  });
+  return {trKva:trKva, motKva:motKva, total:trKva+motKva};
+}
+function ratedA(kva,phase){
+  return kva*1000/((phase==='単相'?105:210)*(phase==='単相'?1:Math.sqrt(3)));
+}
+
+// ══════════════════════════════════════════
+// HOME
+// ══════════════════════════════════════════
+function renderHome(){
+  var wrap=document.getElementById('siteCards'); wrap.innerHTML='';
+  var q=((document.getElementById('siteSearch')||{}).value||'').trim().toLowerCase();
+  var filtered=q?sites.filter(function(s){return s.name.toLowerCase().indexOf(q)!==-1;}):sites;
+  if(filtered.length===0){
+    wrap.innerHTML='<div style="color:var(--t3);font-size:13px;padding:12px 4px">「'+esc(q)+'」に一致する物件が見つかりません</div>';
+  }
+  filtered.forEach(function(site){
+    var c=calcCap(site);
+    var daiN=site.dais.length;
+    var trN=site.dais.reduce(function(s,d){return s+(d.trs||[]).length;},0);
+    var capN=site.dais.reduce(function(s,d){return s+(d.caps||[]).length;},0);
+    var motN=site.dais.reduce(function(s,d){return s+(d.motors||[]).length;},0);
+    var div=document.createElement('div'); div.className='site-card';
+    div.innerHTML='<div style="flex:1">'
+      +'<div class="site-nm">'+esc(site.name)+'</div>'
+      +'<div class="site-info">'
+      +'<span class="stag bl">変台 '+daiN+'箇所</span>'
+      +'<span class="stag ok">Tr '+trN+'台 '+Math.floor(c.trKva).toLocaleString()+'kVA</span>'
+      +(capN>0?'<span class="stag pu">SC '+capN+'台</span>':'')
+      +(motN>0?'<span class="stag rd">高圧M '+motN+'台 '+Math.floor(c.motKva).toLocaleString()+'kVA</span>':'')
+      +'<br><strong>設備容量：'+Math.floor(c.total).toLocaleString()+'kVA</strong>'
+      +'</div></div>'
+      +'<div class="site-btns">'
+      +'<button class="bsm gr no-print" onclick="startInsp(\''+site.id+'\')">点検開始</button>'
+      +'<button class="bsm bl no-print" onclick="openEditSite(\''+site.id+'\')">編集</button>'
+      +'</div>';
+    wrap.appendChild(div);
+  });
+}
+
+// ══════════════════════════════════════════
+// EDIT SCREEN
+// ══════════════════════════════════════════
+function openNewSite(){
+  editSiteId = 'new_'+Date.now();
+  document.getElementById('editTitle').textContent='新規物件登録';
+  renderEditScreen({id:editSiteId, name:'', mult:1, hasGenset:false, dais:[]});
+  showScr('scrEdit');
+}
+function openEditSite(siteId){
+  editSiteId = siteId;
+  var site=sites.find(function(s){return s.id===siteId;});
+  document.getElementById('editTitle').textContent=esc(site.name)+' — 設備編集';
+  renderEditScreen(site);
+  showScr('scrEdit');
+}
+
+function renderEditScreen(site){
+  var w=document.getElementById('editWrap'); w.innerHTML='';
+
+  // 基本情報
+  w.innerHTML+='<div class="card"><div class="chdr">物件基本情報</div><div class="cbdy">'
+    +'<div class="f"><label>物件名</label><input type="text" id="eName" value="'+esc(site.name||'')+'" placeholder="例：豊栄化学㈱ 第2工場"></div>'
+    +'<div class="f2">'
+    +'<div class="f"><label>取引計器 倍率</label><input type="number" id="eMult" value="'+(site.mult||1)+'"></div>'
+    +'<div class="f"><label>発電装置</label><select id="eGenset"><option value="0"'+(site.hasGenset?'':' selected')+'>なし</option><option value="1"'+(site.hasGenset?' selected':'')+'>あり</option></select></div>'
+    +'</div></div></div>';
+
+  // 変台一覧
+  var daiWrap=document.createElement('div'); daiWrap.id='eDaiWrap';
+  w.appendChild(daiWrap);
+  (site.dais||[]).forEach(function(dai){ appendDaiCard(daiWrap, dai); });
+
+  // 変台追加ボタン
+  var addDaiBtn=document.createElement('button');
+  addDaiBtn.className='btn-add no-print';
+  addDaiBtn.textContent='＋ 変台を追加';
+  addDaiBtn.onclick=function(){
+    appendDaiCard(daiWrap,{id:'d'+Date.now(),name:'',sends:[],trs:[],caps:[],motors:[]});
+  };
+  w.appendChild(addDaiBtn);
+
+  // 保存ボタン
+  var saveBtn=document.createElement('button');
+  saveBtn.className='btn-big pri no-print';
+  saveBtn.style.marginTop='8px';
+  saveBtn.textContent='保存して点検開始';
+  saveBtn.onclick=saveEditAndStart;
+  w.appendChild(saveBtn);
+}
+
+function appendDaiCard(wrap, dai){
+  var card=document.createElement('div'); card.className='dai-card'; card.dataset.daiid=dai.id;
+  card.innerHTML='<div class="dai-card-hdr">'
+    +'<input type="text" value="'+esc(dai.name||'')+'" placeholder="変台名（例：受電変台、第1変台）" class="dai-name-in" style="flex:1;font-size:13px;padding:5px 8px;border:1px solid var(--bd);border-radius:5px;font-family:inherit">'
+    +'<button class="bsm rd no-print" style="margin-left:8px" onclick="this.closest(\'.dai-card\').remove()">削除</button>'
+    +'</div>'
+    +'<div class="dai-card-body">'
+    // 送り
+    +'<div class="edit-sect"><div class="edit-sect-hdr">▶ 高圧送り</div>'
+    +'<div class="sends-wrap">'+((dai.sends||[]).map(renderSendRow).join(''))+'</div>'
+    +'<button class="btn-add-sm no-print" onclick="addSendRow(this)">＋ 送りを追加</button></div>'
+    // トランス
+    +'<div class="edit-sect"><div class="edit-sect-hdr" style="color:var(--ok)">トランス</div>'
+    +'<div class="eq-lbl" style="display:grid;grid-template-columns:1fr 80px 90px 36px;gap:6px;padding:0 2px"><span>名称</span><span>相</span><span>kVA</span><span></span></div>'
+    +'<div class="trs-wrap">'+((dai.trs||[]).map(renderTrRow).join(''))+'</div>'
+    +'<button class="btn-add-sm no-print" onclick="addTrRow(this)">＋ トランスを追加</button></div>'
+    // コンデンサ
+    +'<div class="edit-sect"><div class="edit-sect-hdr" style="color:var(--pu)">コンデンサ（SC）</div>'
+    +'<div class="eq-lbl" style="display:grid;grid-template-columns:1fr 80px auto auto;gap:6px;padding:0 2px"><span>名称</span><span>kvar</span><span>SR</span><span></span></div>'
+    +'<div class="caps-wrap">'+((dai.caps||[]).map(renderCapRow).join(''))+'</div>'
+    +'<button class="btn-add-sm no-print" onclick="addCapRow(this)">＋ コンデンサを追加</button></div>'
+    // 高圧モーター
+    +'<div class="edit-sect"><div class="edit-sect-hdr" style="color:var(--er)">高圧モーター</div>'
+    +'<div class="eq-lbl" style="display:grid;grid-template-columns:1fr 90px auto auto;gap:6px;padding:0 2px"><span>名称</span><span>容量</span><span>単位</span><span></span></div>'
+    +'<div class="motors-wrap">'+((dai.motors||[]).map(renderMotRow).join(''))+'</div>'
+    +'<button class="btn-add-sm no-print" onclick="addMotRow(this)">＋ 高圧モーターを追加</button></div>'
+    +'</div>';
+  wrap.appendChild(card);
+}
+
+function renderSendRow(s){
+  return '<div class="eq-row-send" data-sendid="'+esc(s.id)+'">'
+    +'<input type="text" value="'+esc(s.name||'')+'" placeholder="送り先名（例：第2変台への送り）" style="font-size:13px;padding:6px 8px">'
+    +'<button class="bsm rd no-print" onclick="this.closest(\'[data-sendid]\').remove()">×</button>'
+    +'</div>';
+}
+function renderTrRow(t){
+  return '<div class="eq-row" data-trid="'+esc(t.id)+'">'
+    +'<input type="text" value="'+esc(t.name||'')+'" placeholder="名称" style="font-size:13px;padding:6px 8px">'
+    +'<select style="font-size:13px;padding:6px 4px"><option'+(t.phase==='三相'?' selected':'')+'>三相</option><option'+(t.phase==='単相'?' selected':'')+'>単相</option></select>'
+    +'<input type="number" value="'+(t.kva||'')+'" placeholder="kVA" style="font-size:13px;padding:6px 8px">'
+    +'<button class="bsm rd no-print" onclick="this.closest(\'[data-trid]\').remove()">×</button>'
+    +'</div>';
+}
+function renderCapRow(c){
+  return '<div class="eq-row-cap" data-capid="'+esc(c.id)+'">'
+    +'<input type="text" value="'+esc(c.name||'')+'" placeholder="名称" style="font-size:13px;padding:6px 8px">'
+    +'<input type="number" value="'+(c.kvar||'')+'" placeholder="kvar" style="font-size:13px;padding:6px 8px">'
+    +'<select style="font-size:13px;padding:6px 4px"><option value="1"'+(c.hasSR?' selected':'')+'>SR有</option><option value="0"'+(c.hasSR?'':' selected')+'>SR無</option></select>'
+    +'<button class="bsm rd no-print" onclick="this.closest(\'[data-capid]\').remove()">×</button>'
+    +'</div>';
+}
+function renderMotRow(m){
+  var isKw=!m.isKva;
+  return '<div class="eq-row-mot" data-motid="'+esc(m.id)+'">'
+    +'<input type="text" value="'+esc(m.name||'')+'" placeholder="名称" style="font-size:13px;padding:6px 8px">'
+    +'<input type="number" value="'+(m.isKva?m.kva:m.kw||'')+'" placeholder="容量" style="font-size:13px;padding:6px 8px">'
+    +'<select style="font-size:13px;padding:6px 4px"><option value="kw"'+(!m.isKva?' selected':'')+'>kW</option><option value="kva"'+(m.isKva?' selected':'')+'>kVA</option></select>'
+    +'<button class="bsm rd no-print" onclick="this.closest(\'[data-motid]\').remove()">×</button>'
+    +'</div>';
+}
+
+function addSendRow(btn){
+  var wrap=btn.previousElementSibling;
+  var tmp=document.createElement('div');
+  tmp.innerHTML=renderSendRow({id:'s'+Date.now(),name:''});
+  wrap.appendChild(tmp.firstChild);
+}
+function addTrRow(btn){
+  var wrap=btn.previousElementSibling;
+  var tmp=document.createElement('div');
+  tmp.innerHTML=renderTrRow({id:'t'+Date.now(),name:'',phase:'三相',kva:''});
+  wrap.appendChild(tmp.firstChild);
+}
+function addCapRow(btn){
+  var wrap=btn.previousElementSibling;
+  var tmp=document.createElement('div');
+  tmp.innerHTML=renderCapRow({id:'c'+Date.now(),name:'',kvar:'',hasSR:true});
+  wrap.appendChild(tmp.firstChild);
+}
+function addMotRow(btn){
+  var wrap=btn.previousElementSibling;
+  var tmp=document.createElement('div');
+  tmp.innerHTML=renderMotRow({id:'m'+Date.now(),name:'',kw:'',isKva:false});
+  wrap.appendChild(tmp.firstChild);
+}
+
+function saveEditAndStart(){
+  var name=(document.getElementById('eName')||{}).value||'';
+  if(!name.trim()){alert('物件名を入力してください');return;}
+  var mult=parseFloat((document.getElementById('eMult')||{}).value)||1;
+  var hasGenset=(document.getElementById('eGenset')||{}).value==='1';
+
+  var dais=[];
+  document.querySelectorAll('#eDaiWrap .dai-card').forEach(function(dc){
+    var daiId=dc.dataset.daiid||('d'+Date.now());
+    var daiName=(dc.querySelector('.dai-name-in')||{}).value||'';
+    var sends=[], trs=[], caps=[], motors=[];
+    dc.querySelectorAll('[data-sendid]').forEach(function(row){
+      var inp=row.querySelector('input[type=text]'); if(!inp)return;
+      sends.push({id:row.dataset.sendid, name:inp.value});
+    });
+    dc.querySelectorAll('[data-trid]').forEach(function(row){
+      var inputs=row.querySelectorAll('input'), sel=row.querySelector('select');
+      if(!inputs[0])return;
+      trs.push({id:row.dataset.trid, name:inputs[0].value, phase:sel?sel.value:'三相', kva:parseFloat(inputs[1]&&inputs[1].value)||0});
+    });
+    dc.querySelectorAll('[data-capid]').forEach(function(row){
+      var inputs=row.querySelectorAll('input'), sel=row.querySelector('select');
+      if(!inputs[0])return;
+      caps.push({id:row.dataset.capid, name:inputs[0].value, kvar:parseFloat(inputs[1]&&inputs[1].value)||0, hasSR:sel&&sel.value==='1'});
+    });
+    dc.querySelectorAll('[data-motid]').forEach(function(row){
+      var inputs=row.querySelectorAll('input'), sel=row.querySelector('select');
+      if(!inputs[0])return;
+      var cap=parseFloat(inputs[1]&&inputs[1].value)||0;
+      var unit=sel?sel.value:'kw';
+      var kva=unit==='kva'?cap:cap/0.8;
+      motors.push({id:row.dataset.motid, name:inputs[0].value, kva:kva, isKva:unit==='kva', kw:unit==='kw'?cap:null});
+    });
+    dais.push({id:daiId, name:daiName, sends:sends, trs:trs, caps:caps, motors:motors});
+  });
+
+  var site={id:editSiteId, name:name, mult:mult, hasGenset:hasGenset, dais:dais};
+  var idx=sites.findIndex(function(s){return s.id===editSiteId;});
+  if(idx>=0) sites[idx]=site; else sites.push(site);
+  saveExtraSites();
+  startInsp(editSiteId);
+}
+
+// ══════════════════════════════════════════
+// INSPECTION
+// ══════════════════════════════════════════
+function startInsp(siteId){
+  curId=siteId;
+  var site=sites.find(function(s){return s.id===siteId;}); if(!site)return;
+  try{var v=LS.get('v7_vc_'+siteId);vcState=v?JSON.parse(v):{};}catch(e){vcState={};}
+  try{var i=LS.get('v7_iss_'+siteId);if(i){var d=JSON.parse(i);issues=d.issues||[];issSeq=d.seq||1;}else{issues=[];issSeq=1;}}catch(e){issues=[];issSeq=1;}
+  document.getElementById('inspTitle').textContent=site.name;
+  buildSteps(site);
+  showScr('scrInsp');
+  goStep(0);
+  setTimeout(function(){
+    var de=document.getElementById('inspDate'); if(de&&!de.value)de.value=new Date().toISOString().split('T')[0];
+    var te=document.getElementById('inspTime');
+    if(te&&!te.value){var n=new Date();te.value=pad(n.getHours())+':'+pad(n.getMinutes());}
+    calcDate(); updateSub();
+    var mk=document.getElementById('mult'); if(mk)mk.value=site.mult||1;
+    var tn=document.getElementById('techName');
+    if(tn&&!tn.value){try{tn.value=LS.get('v7_tech_name')||'';}catch(e){}}
+  },80);
+}
+function pad(n){return n<10?'0'+n:''+n;}
+
+// ══════════════════════════════════════════
+// BUILD STEPS
+// ══════════════════════════════════════════
+function buildSteps(site){
+  var wrap=document.getElementById('stepWrap'); wrap.innerHTML='';
+  var tabBar=document.getElementById('tabBar'); tabBar.innerHTML='';
+  stepDefs=[];
+  stepDefs.push({id:'basic',label:'基本情報'});
+  stepDefs.push({id:'meter',label:'取引計器'});
+  site.dais.forEach(function(d){stepDefs.push({id:'dai_'+d.id,label:d.name});});
+  stepDefs.push({id:'visual',label:'目視点検'});
+  if(site.hasGenset) stepDefs.push({id:'genset',label:'発電装置'});
+  stepDefs.push({id:'done',label:'完了'});
+  stepDone=Array(stepDefs.length).fill(false);
+  stepDefs.forEach(function(s,i){
+    var t=document.createElement('div'); t.className='tab'; t.id='tab'+i; t.textContent=s.label;
+    (function(idx){t.onclick=function(){goStep(idx);};})(i);
+    tabBar.appendChild(t);
+    var el=document.createElement('div'); el.className='step'; el.id='step'+i;
+    el.innerHTML=buildHTML(s,i,site); wrap.appendChild(el);
+  });
+  buildVcTable(); renderIssues();
+}
+
+function buildHTML(s,i,site){
+  var last=i===stepDefs.length-1;
+  var prev=i>0?'<button class="btn-pv" onclick="goStep('+(i-1)+')">← 戻る</button>':'<div></div>';
+  var next=last?'':'<button class="btn-nx" onclick="doneStep('+i+');goStep('+(i+1)+')">'+(i===stepDefs.length-2?'完了確認':'次へ →')+'</button>';
+  var nav='<div class="nav no-print">'+prev+next+'</div>';
+  if(s.id==='basic') return hBasic()+nav;
+  if(s.id==='meter') return hMeter(site)+nav;
+  if(s.id.indexOf('dai_')===0){
+    var dai=site.dais.find(function(d){return d.id===s.id.replace('dai_','');});
+    return hDai(dai)+nav;
+  }
+  if(s.id==='visual') return hVisual()+nav;
+  if(s.id==='genset') return hGenset()+nav;
+  if(s.id==='done') return hDone();
+  return nav;
+}
+
+function hBasic(){return '<div class="card"><div class="chdr">基本情報</div><div class="cbdy">'
+  +'<div class="f"><label>点検年月日</label><input type="date" id="inspDate" oninput="calcDate();updateSub()"></div>'
+  +'<div class="f"><label>時刻</label><input type="time" id="inspTime"></div>'
+  +'<div class="f"><label>曜日</label><input type="text" id="weekday" readonly></div>'
+  +'<div class="f"><label>天候</label><select id="weather"><option>晴れ</option><option>曇り</option><option>雨</option><option>雪</option></select></div>'
+  +'<div class="f"><label>気温 <span class="u">℃</span></label><input type="number" id="tempC" placeholder="11"></div>'
+  +'<div class="f"><label>管理技術者名</label><input type="text" id="techName" placeholder=""></div>'
+  +'</div></div>';}
+
+function hMeter(site){
+  var cap=calcCap(site).total;
+  return '<div class="card"><div class="chdr">取引計器・電力量</div><div class="cbdy">'
+  +'<div class="f"><label>契約電力 <span class="u">kW</span></label><input type="number" id="contractKw"></div>'
+  +'<div class="f"><label>現在電力 <span class="u">kW</span></label><input type="number" id="currentKw"></div>'
+  +'<div class="f"><label>倍率</label><input type="number" id="mult" oninput="calcMeter()"></div>'
+  +'<div class="f"><label>力率 <span class="u">%</span></label><input type="number" id="mPf"></div>'
+  +'<hr class="dv">'
+  +'<div class="f"><label>検針月日（今）</label><input type="date" id="mNowDt" oninput="calcMeter()"></div>'
+  +'<div class="f"><label>指示値（今）</label><input type="number" id="mNowV" step="0.001" oninput="calcMeter()"></div>'
+  +'<div class="f"><label>検針月日（前）</label><input type="date" id="mPrevDt" oninput="calcMeter()"></div>'
+  +'<div class="f"><label>指示値（前）</label><input type="number" id="mPrevV" step="0.001" oninput="calcMeter()"></div>'
+  +'<hr class="dv">'
+  +'<div class="f"><label>差分</label><div class="atag">● 自動計算</div><div class="cv neu" id="mDiff">－</div></div>'
+  +'<div class="f"><label>電力量 <span class="u">kWh/月</span></label><div class="atag">● 自動計算</div><div class="cv neu" id="mKwh">－</div></div>'
+  +'<div class="f2"><div class="f"><label>平均 <span class="u">kWh/日</span></label><div class="atag">● 自動計算</div><div class="cv neu" id="mAvg">－</div></div>'
+  +'<div class="f"><label>需要率 <span class="u">%</span></label><div class="atag">● 自動計算</div><div class="cv neu" id="demRate">－</div></div></div>'
+  +'<div class="f2"><div class="f"><label>設備容量 <span class="u">kVA</span></label><div class="atag">● 自動計算</div><div class="cv neu" id="facCap">'+Math.floor(cap).toLocaleString()+' kVA</div></div>'
+  +'<div class="f"><label>最大電力 <span class="u">kW</span></label><input type="number" id="maxKw" oninput="calcMeter()"></div></div>'
+  +'</div></div>';}
+
+function hDai(dai){
+  if(!dai) return '<div class="card"><div class="cbdy">データなし</div></div>';
+  var h='<div class="card"><div class="chdr">'+esc(dai.name)+'</div><div class="cbdy">';
+  // 受電V/I
+  h+='<div class="slb recv">受電電圧・電流</div>';
+  h+=f3V(dai.id+'_recv_v','chkVolt(\''+dai.id+'\')');
+  h+='<div id="volt_'+dai.id+'" class="alrt">⚠ 受電電圧が基準値（6,000〜6,900V）を外れています</div>';
+  h+=f3I(dai.id+'_recv_i','');
+  h+='<div class="f"><label>GR電源 前回 <span class="u">mA</span></label><input type="number" id="'+dai.id+'_gr_prev"></div>';
+  h+='<div class="f"><label>GR電源 今回 <span class="u">mA</span></label><input type="number" id="'+dai.id+'_gr_now"></div>';
+  h+='<div class="f"><label>力率 <span class="u">%</span></label><input type="number" id="'+dai.id+'_pf"></div>';
+  // 送り
+  if(dai.sends&&dai.sends.length){
+    h+='<hr class="dv"><div class="slb send">▶ 高圧送り</div>';
+    dai.sends.forEach(function(s){
+      h+='<div class="send-block"><div class="send-nm">'+esc(s.name)+'</div>';
+      h+=f3V(s.id+'_v',''); h+=f3I(s.id+'_i','');
+      h+='</div>';
+    });
+  }
+  // トランス
+  if(dai.trs&&dai.trs.length){
+    h+='<hr class="dv"><div class="slb tr">トランス ― 電圧・電流・漏洩電流</div>';
+    dai.trs.forEach(function(tr){
+      var ra=ratedA(tr.kva,tr.phase).toFixed(0);
+      h+='<div class="eq-block"><div class="eq-name">'+esc(tr.name)+'<span class="eq-sub">　'+esc(tr.phase)+' '+tr.kva+'kVA　定格'+ra+'A</span></div>';
+      h+=f3V(tr.id+'_v','');
+      h+=f3I(tr.id+'_i','calcLoad(\''+tr.id+'\','+tr.kva+',\''+tr.phase+'\')');
+      h+='<div class="f"><label>漏洩電流 <span class="u">mA</span></label>'
+        +'<input type="number" id="'+tr.id+'_leak" step="0.1" data-leak="'+tr.id+'">'
+        +'<div id="'+tr.id+'_leakbox"></div></div>'
+        +'<div class="f"><label>変圧器負荷率</label><div class="atag">● 自動計算</div><div class="cv neu" id="'+tr.id+'_load">－</div></div>'
+        +'</div>';
+    });
+  }
+  // コンデンサ
+  if(dai.caps&&dai.caps.length){
+    h+='<hr class="dv"><div class="slb cap">コンデンサ ― 電流・漏洩電流</div>';
+    dai.caps.forEach(function(cap){
+      h+='<div class="cap-block"><div class="cap-nm">'+esc(cap.name)+'<span style="font-weight:400;color:var(--pu);font-size:11px">　'+cap.kvar+'kvar'+(cap.hasSR?' (SR付き)':'')+'</span></div>';
+      h+=f3I(cap.id+'_i','');
+      h+='<div class="f"><label>漏洩電流 <span class="u">mA</span></label>'
+        +'<input type="number" id="'+cap.id+'_leak" step="0.1" data-leak="'+cap.id+'">'
+        +'<div id="'+cap.id+'_leakbox"></div></div></div>';
+    });
+  }
+  // 高圧モーター
+  if(dai.motors&&dai.motors.length){
+    h+='<hr class="dv"><div class="slb mot">高圧モーター ― 電圧・電流・漏洩電流</div>';
+    dai.motors.forEach(function(m){
+      h+='<div class="mot-block"><div class="mot-nm">'+esc(m.name)+'<span style="font-weight:400;color:var(--er);font-size:11px">　'+m.kva.toFixed(1)+'kVA</span></div>';
+      h+=f3V(m.id+'_v',''); h+=f3I(m.id+'_i','');
+      h+='<div class="f"><label>漏洩電流 <span class="u">mA</span></label>'
+        +'<input type="number" id="'+m.id+'_leak" step="0.1" data-leak="'+m.id+'">'
+        +'<div id="'+m.id+'_leakbox"></div></div></div>';
+    });
+  }
+  // 温度
+  h+='<hr class="dv"><div class="slb temp">🌡 温度確認</div>';
+  h+='<div class="temp-block"><div class="temp-nm">開閉器温度（PC, LBS）</div>';
+  h+='<div class="f"><label>受電LBS <span class="u">℃</span></label><input type="number" id="'+dai.id+'_lbs_recv"></div>';
+  (dai.trs||[]).forEach(function(tr){h+='<div class="f"><label>'+esc(tr.name)+' LBS <span class="u">℃</span></label><input type="number" id="'+tr.id+'_lbs"></div>';});
+  (dai.caps||[]).forEach(function(cap){h+='<div class="f"><label>'+esc(cap.name)+' LBS <span class="u">℃</span></label><input type="number" id="'+cap.id+'_lbs"></div>';});
+  h+='</div>';
+  if(dai.trs&&dai.trs.length){
+    h+='<div class="temp-block"><div class="temp-nm">機器温度（Tr） ― 変圧器本体</div>';
+    dai.trs.forEach(function(tr){h+='<div class="f"><label>'+esc(tr.name)+' <span class="u">℃</span></label><input type="number" id="'+tr.id+'_trt"></div>';});
+    h+='</div>';
+  }
+  if(dai.caps&&dai.caps.some(function(c){return c.hasSR;})){
+    h+='<div class="temp-block"><div class="temp-nm">機器温度（SR） ― リアクトル</div>';
+    dai.caps.filter(function(c){return c.hasSR;}).forEach(function(cap){h+='<div class="f"><label>'+esc(cap.name)+' SR <span class="u">℃</span></label><input type="number" id="'+cap.id+'_sr_t"></div>';});
+    h+='</div>';
+  }
+  if(dai.caps&&dai.caps.length){
+    h+='<div class="temp-block"><div class="temp-nm">機器温度（SC） ― コンデンサ本体</div>';
+    dai.caps.forEach(function(cap){h+='<div class="f"><label>'+esc(cap.name)+' SC <span class="u">℃</span></label><input type="number" id="'+cap.id+'_sc_t"></div>';});
+    h+='</div>';
+  }
+  if(dai.motors&&dai.motors.length){
+    h+='<div class="temp-block"><div class="temp-nm">機器温度（高圧モーター）</div>';
+    dai.motors.forEach(function(m){h+='<div class="f"><label>'+esc(m.name)+' <span class="u">℃</span></label><input type="number" id="'+m.id+'_trt"></div>';});
+    h+='</div>';
+  }
+  h+='</div></div>';
+  return h;
+}
+
+function f3V(prefix,oc){
+  var h='',pairs=[['R-S','vrs'],['S-T','vst'],['T-R','vtr']];
+  pairs.forEach(function(p){
+    h+='<div class="f"><label>電圧 '+p[0]+' <span class="u">V</span></label>'
+      +'<input type="number" id="'+prefix+'_'+p[1]+'"'+(oc?' oninput="'+oc+'"':'')+'></div>';
+  });
+  return h;
+}
+function f3I(prefix,oc){
+  var h='';
+  ['R','S','T'].forEach(function(lb){
+    h+='<div class="f"><label>電流 '+lb+' <span class="u">A</span></label>'
+      +'<input type="number" id="'+prefix+'_'+lb.toLowerCase()+'"'+(oc?' oninput="'+oc+'"':'')+'></div>';
+  });
+  return h;
+}
+
+function hVisual(){return '<div class="card"><div class="chdr">外観目視点検 <span class="sub">○良　△要注意　×不良　－対象外</span></div><div class="cbdy"><table class="vct" id="vcTable"><tr><th style="width:55%">対象設備</th><th>点検結果</th></tr></table></div></div>'
+  +'<div class="card"><div class="chdr">指摘・改善管理 <span class="sub" id="issHdr"></span></div><div class="cbdy"><div id="issueList"></div><button class="add-iss no-print" id="addIssBtn">＋ 手動で指摘を追加</button></div></div>';}
+
+function hGenset(){return '<div class="card"><div class="chdr">非常用発電装置</div><div class="cbdy">'
+  +'<div class="f"><label>試運転結果</label><select id="genResult"><option>良</option><option>不良</option></select></div>'
+  +'<div class="f"><label>起動SW</label><select id="genSw"><option>自動</option><option>手動</option></select></div>'
+  +'<div class="f"><label>自動/手動切替確認</label><select id="genMode"><option>確認済</option><option>未確認</option></select></div>'
+  +'<div class="f"><label>復帰確認</label><select id="genRestore"><option>確認済</option><option>未確認</option></select></div>'
+  +'<hr class="dv">'
+  +'<div class="f"><label>電圧確立時間 <span class="u">秒</span></label><input type="number" id="genVt"></div>'
+  +'<div class="f"><label>電圧AC <span class="u">V</span></label><input type="number" id="genVac"></div>'
+  +'<div class="f"><label>負荷電流 <span class="u">A</span></label><input type="number" id="genCur"></div>'
+  +'<div class="f"><label>周波数 <span class="u">Hz</span></label><input type="number" id="genHz"></div>'
+  +'<div class="f"><label>回転数 <span class="u">min</span></label><input type="number" id="genRpm"></div>'
+  +'<div class="f"><label>潤滑油圧力 <span class="u">Mpa</span></label><input type="number" id="genOilP" step="0.1"></div>'
+  +'<div class="f"><label>潤滑油温 <span class="u">℃</span></label><input type="number" id="genOilT"></div>'
+  +'<div class="f"><label>燃料容量 <span class="u">L</span></label><input type="number" id="genFuelCap"></div>'
+  +'<div class="f"><label>燃料残量 <span class="u">%</span></label><input type="number" id="genFuelPct"></div>'
+  +'<div class="f"><label>冷却水温 <span class="u">℃</span></label><input type="number" id="genCool"></div>'
+  +'<hr class="dv">'
+  +'<div class="f"><label>蓄電池電圧DC <span class="u">V</span></label><input type="number" id="batV" step="0.1"></div>'
+  +'<div class="f"><label>充電電流 <span class="u">A</span></label><input type="number" id="batI"></div>'
+  +'<div class="f"><label>蓄電池液量</label><select id="batLv"><option>正常</option><option>要補充</option><option>－</option></select></div>'
+  +'</div></div>';}
+
+function hDone(){return '<div class="comp"><div class="comp-ic">✅</div><div class="comp-tt">入力完了！</div>'
+  +'<div class="comp-sb" id="compSub">集計中…</div>'
+  +'<button class="btn-big pri" onclick="window.print()">📄 PDF出力</button>'
+  +'<button class="btn-big sec" onclick="saveInsp()">💾 データ保存</button>'
+  +'<button class="btn-big sec" onclick="showScr(\'scrHome\');renderHome()">← 物件一覧へ</button></div>';}
+
+// ══════════════════════════════════════════
+// STEP NAV
+// ══════════════════════════════════════════
+function goStep(n){
+  document.querySelectorAll('.step').forEach(function(s,i){s.classList.toggle('active',i===n);});
+  document.querySelectorAll('.tab').forEach(function(t,i){t.classList.toggle('active',i===n);});
+  window.scrollTo(0,0);
+  if(stepDefs[n]&&stepDefs[n].id==='done') mkSummary();
+  if(stepDefs[n]&&stepDefs[n].id==='meter') setTimeout(calcMeter,50);
+}
+function doneStep(n){
+  stepDone[n]=true;
+  var tab=document.querySelectorAll('.tab')[n]; if(tab)tab.classList.add('done');
+  var cnt=stepDone.filter(Boolean).length, total=stepDefs.length-1;
+  document.getElementById('progFl').style.width=(cnt/total*100)+'%';
+  document.getElementById('progLb').textContent=cnt+'/'+total+' 完了';
+}
+
+// ══════════════════════════════════════════
+// CALCS
+// ══════════════════════════════════════════
+function calcDate(){
+  var el=document.getElementById('inspDate'); if(!el||!el.value)return;
+  var days=['日','月','火','水','木','金','土'];
+  var w=document.getElementById('weekday'); if(w)w.value='（'+days[new Date(el.value+'T00:00:00').getDay()]+'）';
+}
+function updateSub(){
+  var el=document.getElementById('inspDate'); if(el)document.getElementById('inspSub').textContent=el.value||'-';
+}
+function chkVolt(daiId){
+  var vals=['vrs','vst','vtr'].map(function(k){var el=document.getElementById(daiId+'_recv_v_'+k);return el?parseFloat(el.value):NaN;}).filter(function(v){return !isNaN(v);});
+  var al=document.getElementById('volt_'+daiId); if(!al)return;
+  al.classList.toggle('show',vals.length>0&&(Math.min.apply(null,vals)<6000||Math.max.apply(null,vals)>6900));
+}
+function calcLoad(trId,kva,phase){
+  var vals=['r','s','t'].map(function(k){var el=document.getElementById(trId+'_i_'+k);return el?parseFloat(el.value):NaN;}).filter(function(v){return !isNaN(v);});
+  var el=document.getElementById(trId+'_load'); if(!el)return;
+  if(!vals.length){el.textContent='－';el.className='cv neu';return;}
+  var pct=Math.max.apply(null,vals)/ratedA(kva,phase)*100;
+  el.textContent=pct.toFixed(0)+'%';
+  el.className=pct>=90?'cv er':pct>=70?'cv wn':'cv';
+}
+function calcLeak(eid){
+  var inp=document.getElementById(eid+'_leak'), box=document.getElementById(eid+'_leakbox');
+  if(!inp||!box)return;
+  var val=parseFloat(inp.value); if(isNaN(val)){box.innerHTML='';return;}
+  var hist=((leakHist[curId]||{})[eid]||[]);
+  var prev=hist.length?hist[hist.length-1].v:null;
+  var diffHtml='';
+  if(prev!==null){
+    var diff=val-prev, pct=prev>0?diff/prev*100:0;
+    var cls=diff>0.01?'up':diff<-0.01?'dn':'eq';
+    var sign=diff>0?'▲':'▼';
+    var txt=Math.abs(diff)<0.01?'→ 変化なし':sign+Math.abs(pct).toFixed(0)+'% ('+Math.abs(diff).toFixed(2)+'mA)';
+    diffHtml='<span class="leak-diff '+cls+'">'+txt+'</span>';
+  }
+  var sparkData=hist.slice(-5).map(function(h){return h.v;}).concat([val]);
+  var color=val>=1?'#b91c1c':val>=0.5?'#b45309':'#0f766e';
+  box.innerHTML='<div class="leak-box">'
+    +'<div class="leak-top"><span class="leak-val" style="color:'+color+'">'+val+' mA</span>'+diffHtml+'</div>'
+    +'<canvas class="spark" id="'+eid+'_spark" width="300" height="36"></canvas>'
+    +'<div style="font-size:10px;color:var(--t3);margin-top:2px">過去'+(sparkData.length-1)+'回＋今回の推移</div>'
+    +'</div>';
+  setTimeout(function(){drawSpark(eid+'_spark',sparkData,color);},0);
+}
+function drawSpark(cid,data,color){
+  var cv=document.getElementById(cid); if(!cv)return;
+  var ctx=cv.getContext('2d'), W=cv.offsetWidth||300, H=36;
+  cv.width=W; cv.height=H;
+  if(data.length<2){ctx.fillStyle=color;ctx.beginPath();ctx.arc(W/2,H/2,4,0,Math.PI*2);ctx.fill();return;}
+  var mn=Math.min.apply(null,data)*0.9, mx=Math.max.apply(null,data)*1.1+0.001;
+  var xs=data.map(function(_,i){return i/(data.length-1)*(W-16)+8;});
+  var ys=data.map(function(v){return H-6-(v-mn)/(mx-mn)*(H-12);});
+  ctx.clearRect(0,0,W,H);
+  ctx.beginPath(); ctx.moveTo(xs[0],H);
+  for(var i=0;i<xs.length;i++) ctx.lineTo(xs[i],ys[i]);
+  ctx.lineTo(xs[xs.length-1],H); ctx.closePath(); ctx.fillStyle=color+'22'; ctx.fill();
+  ctx.beginPath(); ctx.moveTo(xs[0],ys[0]);
+  for(var i=1;i<xs.length;i++) ctx.lineTo(xs[i],ys[i]);
+  ctx.strokeStyle=color; ctx.lineWidth=2; ctx.lineJoin='round'; ctx.stroke();
+  for(var i=0;i<xs.length;i++){
+    ctx.beginPath(); ctx.arc(xs[i],ys[i],i===xs.length-1?5:3,0,Math.PI*2);
+    ctx.fillStyle=i===xs.length-1?color:'#fff'; ctx.strokeStyle=color; ctx.lineWidth=1.5; ctx.fill(); ctx.stroke();
+  }
+}
+function calcMeter(){
+  function gv(id){var el=document.getElementById(id);return el?parseFloat(el.value):NaN;}
+  function sv(id,v,cls){var el=document.getElementById(id);if(el){el.textContent=v;el.className='cv '+(cls||'neu');}}
+  var nv=gv('mNowV'),pv=gv('mPrevV'),mult=gv('mult')||1,maxKw=gv('maxKw');
+  var nd=document.getElementById('mNowDt'), pd=document.getElementById('mPrevDt');
+  if(!isNaN(nv)&&!isNaN(pv)){
+    var diff=nv-pv; sv('mDiff',diff.toFixed(3));
+    var kwh=diff*mult; sv('mKwh',Math.round(kwh).toLocaleString()+' kWh');
+    if(nd&&pd&&nd.value&&pd.value){var days=(new Date(nd.value)-new Date(pd.value))/86400000;if(days>0)sv('mAvg',(kwh/days).toFixed(0)+' kWh/日');}
+  } else {['mDiff','mKwh','mAvg'].forEach(function(id){sv(id,'－');});}
+  var site=sites.find(function(s){return s.id===curId;});
+  if(site){var t=calcCap(site).total; sv('facCap',Math.floor(t).toLocaleString()+' kVA');
+    if(!isNaN(maxKw)&&t>0)sv('demRate',(maxKw/t*100).toFixed(0)+'%'); else sv('demRate','－');}
+}
+
+// ══════════════════════════════════════════
+// VISUAL CHECK（イベントデリゲーション）
+// ══════════════════════════════════════════
+function buildVcTable(){
+  var tb=document.getElementById('vcTable'); if(!tb)return;
+  while(tb.rows.length>1) tb.deleteRow(1);
+  VC_GROUPS.forEach(function(g){
+    tb.insertRow().innerHTML='<td colspan="2" class="vct-cat">'+esc(g.cat)+'</td>';
+    g.items.forEach(function(item){
+      if(!(item in vcState)) vcState[item]='○';
+      var k=vcKey(item);
+      var row=tb.insertRow();
+      row.innerHTML='<td style="font-size:13px">'+esc(item)+'<span id="vcb_'+k+'"></span></td>'
+        +'<td><div class="rbg">'
+        +['○','△','×','－'].map(function(v){
+          return '<button class="rb'+(v===vcState[item]?' on':'')+'" data-item="'+k+'" data-v="'+v+'" data-label="'+esc(item)+'">'+v+'</button>';
+        }).join('')
+        +'</div></td>';
+    });
+  });
+  tb.addEventListener('click',function(e){
+    var btn=e.target.closest ? e.target.closest('.rb') : null;
+    if(!btn) return;
+    var item=btn.dataset.label, val=btn.dataset.v;
+    if(!item||!val) return;
+    vcClick(item,val,btn.parentNode);
+  });
+  // addIssBtn
+  var addBtn=document.getElementById('addIssBtn');
+  if(addBtn) addBtn.onclick=function(){manualIss();};
+  // leak inputs（イベントデリゲーション）
+  document.getElementById('stepWrap').addEventListener('input',function(e){
+    var t=e.target;
+    if(t.dataset&&t.dataset.leak) calcLeak(t.dataset.leak);
+  });
+  updBadges();
+}
+
+function vcClick(item,val,grp){
+  var prev=vcState[item]; vcState[item]=val;
+  if(grp) grp.querySelectorAll('.rb').forEach(function(b){b.classList.toggle('on',b.dataset.v===val);});
+  updBadges();
+  if((val==='△'||val==='×')&&prev!=='△'&&prev!=='×')
+    if(!issues.find(function(i){return i.equipment===item&&!i.resolved;})) autoIss(item,val);
+}
+function updBadges(){
+  document.querySelectorAll('[id^="vcb_"]').forEach(function(el){el.innerHTML='';});
+  var ti=0, xi=0;
+  VC_GROUPS.forEach(function(g){
+    g.items.forEach(function(item){
+      var v=vcState[item]; if(v!=='△'&&v!=='×') return;
+      var b=document.getElementById('vcb_'+vcKey(item)); if(!b) return;
+      if(v==='△'){
+        ti++;
+        b.innerHTML='<span class="badge w">△'+ti+'</span>';
+        var iss=issues.find(function(i){return i.equipment===item&&!i.resolved&&i.type==='△';});
+        if(iss) iss.seq='△'+ti;
+      } else {
+        xi++;
+        b.innerHTML='<span class="badge e">×'+xi+'</span>';
+        var iss=issues.find(function(i){return i.equipment===item&&!i.resolved&&i.type==='×';});
+        if(iss) iss.seq='×'+xi;
+      }
+    });
+  });
+  renderIssues();
+}
+
+// ══════════════════════════════════════════
+// ISSUES
+// ══════════════════════════════════════════
+function autoIss(equipment,type){
+  var date=(document.getElementById('inspDate')||{}).value||new Date().toISOString().split('T')[0];
+  issues.push({id:issSeq++,equipment:equipment,text:'',resolved:false,createdDate:date,type:type,seq:''});
+  updBadges();
+}
+function manualIss(){
+  var date=(document.getElementById('inspDate')||{}).value||new Date().toISOString().split('T')[0];
+  issues.push({id:issSeq++,equipment:'',text:'',resolved:false,createdDate:date,type:'△',seq:''});
+  renderIssues();
+}
+function renderIssues(){
+  var c=document.getElementById('issueList'); if(!c) return;
+  c.innerHTML='';
+  var sorted=issues.filter(function(i){return !i.resolved;}).concat(issues.filter(function(i){return i.resolved;}));
+  sorted.forEach(function(iss){
+    var div=document.createElement('div'); div.className='iss'+(iss.resolved?' done':'');
+    var nc=iss.resolved?'d':iss.type==='×'?'x':'t';
+    var numTxt=iss.resolved?'済':iss.seq||'?';
+    var eqIn=document.createElement('input'); eqIn.type='text'; eqIn.value=iss.equipment||''; eqIn.placeholder='設備名';
+    eqIn.style.cssText='flex:1;font-size:12px;padding:4px 8px;margin-right:4px;border:1px solid var(--bd);border-radius:4px;font-family:inherit';
+    (function(id){eqIn.addEventListener('input',function(){var i=issues.find(function(x){return x.id===id;});if(i)i.equipment=this.value;});})(iss.id);
+    var typeSel=document.createElement('select'); typeSel.style.cssText='font-size:12px;padding:4px;border:1px solid var(--bd);border-radius:4px;width:52px;font-family:inherit';
+    typeSel.innerHTML='<option'+(iss.type==='△'?' selected':'')+'>△</option><option'+(iss.type==='×'?' selected':'')+'>×</option>';
+    (function(id){typeSel.addEventListener('change',function(){var i=issues.find(function(x){return x.id===id;});if(i){i.type=this.value;updBadges();}});})(iss.id);
+    var rsBtn=document.createElement('button'); rsBtn.className='btn-rs'+(iss.resolved?' u':''); rsBtn.textContent=iss.resolved?'再開':'解消';
+    (function(id){rsBtn.onclick=function(){togRes(id);};})(iss.id);
+    var dlBtn=document.createElement('button'); dlBtn.className='btn-dl'; dlBtn.textContent='削除';
+    (function(id){dlBtn.onclick=function(){delIss(id);};})(iss.id);
+    var txt=document.createElement('textarea'); txt.style.cssText='font-size:13px;min-height:55px;width:100%;margin-top:6px;border:1px solid var(--bd);border-radius:6px;padding:8px;font-family:inherit'; txt.placeholder='指摘内容'; txt.value=iss.text||'';
+    (function(id){txt.addEventListener('input',function(){var i=issues.find(function(x){return x.id===id;});if(i)i.text=this.value;});})(iss.id);
+    var meta=document.createElement('div'); meta.className='iss-meta'; meta.textContent='起票：'+iss.createdDate+(iss.resolved?' 　✅ 解消済':'');
+    var hd=document.createElement('div'); hd.className='iss-hd';
+    var num=document.createElement('div'); num.className='iss-num '+nc; num.textContent=numTxt;
+    var ac=document.createElement('div'); ac.className='iss-ac'; ac.appendChild(rsBtn); ac.appendChild(dlBtn);
+    hd.appendChild(num); hd.appendChild(eqIn); hd.appendChild(typeSel); hd.appendChild(ac);
+    div.appendChild(hd); div.appendChild(txt); div.appendChild(meta);
+    c.appendChild(div);
+  });
+  var active=issues.filter(function(i){return !i.resolved;}).length;
+  var hdr=document.getElementById('issHdr'); if(hdr) hdr.textContent=active?'未解消 '+active+'件':'';
+}
+function togRes(id){var i=issues.find(function(x){return x.id===id;});if(i){i.resolved=!i.resolved;updBadges();}}
+function delIss(id){issues=issues.filter(function(x){return x.id!==id;});updBadges();}
+
+// ══════════════════════════════════════════
+// SAVE
+// ══════════════════════════════════════════
+function saveInsp(){
+  var site=sites.find(function(s){return s.id===curId;}); if(!site) return;
+  var date=(document.getElementById('inspDate')||{}).value||new Date().toISOString().split('T')[0];
+  if(!leakHist[curId]) leakHist[curId]={};
+  site.dais.forEach(function(d){
+    [].concat(d.trs||[],d.caps||[],d.motors||[]).forEach(function(eq){
+      var inp=document.getElementById(eq.id+'_leak'); if(!inp) return;
+      var v=parseFloat(inp.value); if(isNaN(v)) return;
+      if(!leakHist[curId][eq.id]) leakHist[curId][eq.id]=[];
+      leakHist[curId][eq.id].push({date:date,v:v});
+      if(leakHist[curId][eq.id].length>12) leakHist[curId][eq.id].shift();
+    });
+  });
+  LS.set('v7_vc_'+curId,JSON.stringify(vcState));
+  LS.set('v7_iss_'+curId,JSON.stringify({issues:issues,seq:issSeq}));
+  LS.set('v7_leak',JSON.stringify(leakHist));
+  alert('保存しました！次回も指摘と漏洩電流履歴が引き継がれます。');
+}
+function mkSummary(){
+  var site=sites.find(function(s){return s.id===curId;});
+  var date=(document.getElementById('inspDate')||{}).value||'－';
+  var warns=Object.keys(vcState).filter(function(k){return vcState[k]==='△'||vcState[k]==='×';});
+  var active=issues.filter(function(i){return !i.resolved;}).length;
+  var msg=(site?site.name:'')+'　'+date+'\n\n';
+  msg+=warns.length?'⚠ 要確認：'+warns.join('、')+'\n':'外観点検：異常なし\n';
+  if(active) msg+='📋 未解消指摘：'+active+'件';
+  var el=document.getElementById('compSub'); if(el) el.textContent=msg;
+}
+function showScr(id){document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});document.getElementById(id).classList.add('active');}
+function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+</script>
+</body>
+</html>
