@@ -203,6 +203,15 @@ textarea{resize:vertical;line-height:1.5}
         <input type="text" id="settingTechName" placeholder=""></div>
       <button class="btn-nx" style="width:100%;padding:12px;margin-top:4px" onclick="saveSettings()">保存</button>
     </div></div>
+    <div class="card"><div class="chdr">Googleスプレッドシート連携</div><div class="cbdy">
+      <div class="f"><label>Google Apps Script URL</label>
+        <input type="text" id="settingGasUrl" placeholder="https://script.google.com/macros/s/..." style="font-size:12px"></div>
+      <div style="font-size:11px;color:var(--t3);margin-bottom:10px;line-height:1.6">
+        設定するとデータ保存時にGoogleスプレッドシートへ自動転送されます。<br>
+        設定方法は別途「GAS設定手順書」を参照してください。
+      </div>
+      <button class="btn-nx" style="width:100%;padding:12px;margin-top:4px" onclick="saveSettings()">保存</button>
+    </div></div>
   </div>
 </div>
 
@@ -219,7 +228,7 @@ textarea{resize:vertical;line-height:1.5}
 <div class="screen" id="scrInsp">
   <div class="topbar">
     <div><div class="t1" id="inspTitle">点検中</div><div class="t2" id="inspSub">-</div></div>
-    <button class="tbtn pdf" onclick="window.print()">PDF</button>
+    <button class="tbtn pdf" onclick="printReport()">PDF</button>
   </div>
   <div class="prog"><div class="prog-tr"><div class="prog-fl" id="progFl"></div></div><div class="prog-lb" id="progLb">0完了</div></div>
   <div class="tabs" id="tabBar"></div>
@@ -263,6 +272,16 @@ var PRESET = [
     {id:'d2',name:'第2変台',sends:[],
      trs:[{id:'t4',name:'②:200V動力',phase:'三相',kva:200},{id:'t5',name:'A:400V動力',phase:'三相',kva:1000}],
      caps:[{id:'c5',name:'SR,SC',kvar:200,hasSR:true}],motors:[]}
+  ]},
+  {id:'honsha3',name:'㈱豊栄商会 本社工場第3工場',mult:10,hasGenset:false,dais:[
+    {id:'d1',name:'受電変台',sends:[],
+     trs:[
+       {id:'t1',name:'電灯',phase:'単相',kva:50},
+       {id:'t2',name:'200V動力',phase:'三相',kva:300},
+       {id:'t3',name:'400V動力',phase:'三相',kva:300}
+     ],
+     caps:[{id:'c1',name:'SR,SC',kvar:100,hasSR:true}],
+     motors:[]}
   ]},
   {id:'akashi',name:'㈱豊栄商会 明石工場',mult:3600,hasGenset:false,dais:[
     {id:'d1',name:'受電変台(第3工場)',sends:[{id:'s1',name:'第1変台への送り'},{id:'s2',name:'第2変台への送り'},{id:'s3',name:'第3変台への送り'}],
@@ -347,6 +366,9 @@ function loadStorage(){
   // 管理技術者名
   var techName = LS.get('v7_tech_name')||'';
   var tinp=document.getElementById('settingTechName'); if(tinp) tinp.value=techName;
+  // GAS URL
+  var gasUrl = LS.get('v7_gas_url')||'';
+  var ginp=document.getElementById('settingGasUrl'); if(ginp) ginp.value=gasUrl;
 }
 
 function saveSettings(){
@@ -355,6 +377,8 @@ function saveSettings(){
   var el=document.getElementById('officeName'); if(el) el.textContent=name;
   var techName=(document.getElementById('settingTechName')||{}).value||'';
   LS.set('v7_tech_name', techName);
+  var gasUrl=(document.getElementById('settingGasUrl')||{}).value||'';
+  LS.set('v7_gas_url', gasUrl);
   showScr('scrHome');
 }
 
@@ -1077,7 +1101,84 @@ function saveInsp(){
   LS.set('v7_vc_'+curId,JSON.stringify(vcState));
   LS.set('v7_iss_'+curId,JSON.stringify({issues:issues,seq:issSeq}));
   LS.set('v7_leak',JSON.stringify(leakHist));
-  alert('保存しました！次回も指摘と漏洩電流履歴が引き継がれます。');
+
+  // GASへのデータ送信
+  var gasUrl=LS.get('v7_gas_url')||'';
+  if(gasUrl){
+    sendToGas(site, date);
+  } else {
+    alert('保存しました！\n※Googleスプレッドシート連携はまだ設定されていません。');
+  }
+}
+
+function sendToGas(site, date){
+  // 測定値を収集してGASに送信
+  var techName=LS.get('v7_tech_name')||gv('techName');
+  var inspTime=gv('inspTime')||'';
+  var weather=gv('weather')||'';
+  var tempC=gv('tempC')||'';
+
+  // 各変台のデータを収集
+  var rows=[];
+  site.dais.forEach(function(d){
+    // 受電V/I
+    var recvRow={
+      date:date, time:inspTime, siteName:site.name, techName:techName,
+      weather:weather, tempC:tempC, daiName:d.name, eqName:'受電', eqType:'受電',
+      vRS:gv(d.id+'_recv_v_vrs'), vST:gv(d.id+'_recv_v_vst'), vTR:gv(d.id+'_recv_v_vtr'),
+      iR:gv(d.id+'_recv_i_r'), iS:gv(d.id+'_recv_i_s'), iT:gv(d.id+'_recv_i_t'),
+      loadRate:'', leak:'', lbsTemp:'', eqTemp:'',
+      vcResult:'', contractKw:gv('contractKw'), maxKw:gv('maxKw'),
+      mKwh:document.getElementById('mKwh')?document.getElementById('mKwh').textContent:'',
+      demRate:document.getElementById('demRate')?document.getElementById('demRate').textContent:''
+    };
+    rows.push(recvRow);
+
+    // 各設備
+    [].concat(
+      (d.trs||[]).map(function(t){return {eq:t,type:'Tr'};}),
+      (d.caps||[]).map(function(c){return {eq:c,type:'SC'};}),
+      (d.motors||[]).map(function(m){return {eq:m,type:'Motor'};})
+    ).forEach(function(item){
+      var eq=item.eq;
+      var loadEl=document.getElementById(eq.id+'_load');
+      var scT=gv(eq.id+'_sc_t'), srT=eq.hasSR?gv(eq.id+'_sr_t'):'';
+      var eqTemp=item.type==='Tr'?gv(eq.id+'_trt'):(srT?'SR:'+srT+' SC:'+scT:scT);
+      rows.push({
+        date:date, time:inspTime, siteName:site.name, techName:techName,
+        weather:weather, tempC:tempC, daiName:d.name, eqName:eq.name, eqType:item.type,
+        vRS:gv(eq.id+'_v_vrs'), vST:gv(eq.id+'_v_vst'), vTR:gv(eq.id+'_v_vtr'),
+        iR:gv(eq.id+'_i_r'), iS:gv(eq.id+'_i_s'), iT:gv(eq.id+'_i_t'),
+        loadRate:loadEl?loadEl.textContent:'',
+        leak:gv(eq.id+'_leak'),
+        lbsTemp:gv(eq.id+'_lbs'),
+        eqTemp:eqTemp,
+        vcResult:'', contractKw:'', maxKw:'', mKwh:'', demRate:''
+      });
+    });
+  });
+
+  // 目視結果を最初の行に付加
+  var vcSummary=Object.keys(vcState).filter(function(k){return vcState[k]==='△'||vcState[k]==='×';}).join('、');
+  if(rows.length>0) rows[0].vcResult=vcSummary||'異常なし';
+
+  // 指摘内容
+  var issueText=issues.filter(function(i){return !i.resolved;}).map(function(i){return i.seq+'）'+i.equipment+'：'+i.text;}).join('\n');
+  if(rows.length>0) rows[0].issueText=issueText;
+
+  var gasUrl=LS.get('v7_gas_url')||'';
+  var payload={sheetName:site.name, rows:rows};
+
+  fetch(gasUrl, {
+    method:'POST',
+    mode:'no-cors',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(payload)
+  }).then(function(){
+    alert('保存しました！\nGoogleスプレッドシートへのデータ転送を送信しました。');
+  }).catch(function(e){
+    alert('ローカル保存しました。\nスプレッドシートへの転送に失敗しました：'+e.message);
+  });
 }
 function mkSummary(){
   var site=sites.find(function(s){return s.id===curId;});
