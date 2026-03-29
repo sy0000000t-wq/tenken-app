@@ -823,11 +823,25 @@ function hGenset(){return '<div class="card"><div class="chdr">非常用発電�
   +'<div class="f"><label>蓄電池液量</label><select id="batLv"><option>正常</option><option>要補充</option><option>－</option></select></div>'
   +'</div></div>';}
 
-function hDone(){return '<div class="comp"><div class="comp-ic">✅</div><div class="comp-tt">入力完了！</div>'
+function hDone(){
+  var months=[1,2,3,4,5,6,7,8,9,10,11,12];
+  var now=new Date(); var cm=now.getMonth()+1;
+  var mopts=months.map(function(m){return '<option value="'+m+'"'+(m===cm?' selected':'')+'>'+m+'月</option>';}).join('');
+  return '<div class="comp"><div class="comp-ic">✅</div><div class="comp-tt">入力完了！</div>'
   +'<div class="comp-sb" id="compSub">集計中…</div>'
-  +'<button class="btn-big pri" onclick="window.print()">📄 PDF出力</button>'
+  +'<div style="background:#f0f4f8;border-radius:8px;padding:12px;margin-bottom:12px;text-align:left">'
+  +'<div style="font-size:11px;font-weight:700;color:#4a5568;margin-bottom:8px">PDF出力設定</div>'
+  +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
+  +'<div><label style="font-size:11px;color:#666;display:block;margin-bottom:3px">点検月</label>'
+  +'<select id="pdfMonth" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:6px;font-family:inherit;font-size:14px">'+mopts+'</select></div>'
+  +'<div><label style="font-size:11px;color:#666;display:block;margin-bottom:3px">点検頻度</label>'
+  +'<select id="pdfFreq" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:6px;font-family:inherit;font-size:14px">'
+  +'<option value="monthly">月次（毎月）</option><option value="bimonthly">隔月</option>'
+  +'</select></div></div></div>'
+  +'<button class="btn-big pri" onclick="printReport()">📄 PDF出力</button>'
   +'<button class="btn-big sec" onclick="saveInsp()">💾 データ保存</button>'
-  +'<button class="btn-big sec" onclick="showScr(\'scrHome\');renderHome()">← 物件一覧へ</button></div>';}
+  +'<button class="btn-big sec" onclick="showScr(\'scrHome\');renderHome()">← 物件一覧へ</button></div>';
+}
 
 // ══════════════════════════════════════════
 // STEP NAV
@@ -1077,6 +1091,327 @@ function mkSummary(){
 }
 function showScr(id){document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});document.getElementById(id).classList.add('active');}
 function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+// ══════════════════════════════════════════
+// PDF報告書生成
+// ══════════════════════════════════════════
+function gv(id){var el=document.getElementById(id);return el?el.value:'';}
+function gvn(id){var v=parseFloat(gv(id));return isNaN(v)?'－':v;}
+function fmtNum(v){if(v===null||v===undefined||v==='－')return '－';return isNaN(parseFloat(v))?v:parseFloat(v).toLocaleString();}
+
+function printReport(){
+  var site=sites.find(function(s){return s.id===curId;}); if(!site) return;
+  var month=parseInt((document.getElementById('pdfMonth')||{}).value||new Date().getMonth()+1);
+  var freq=(document.getElementById('pdfFreq')||{}).value||'monthly';
+  var titleMonth=freq==='bimonthly'?(month===1?12:month-1)+'月・'+month+'月':month+'月';
+  var docTitle='電気工作物　通常点検（'+titleMonth+'）報告書';
+
+  var officeName=LS.get('v7_office_name')||'';
+  var techName=LS.get('v7_tech_name')||gv('techName');
+  var inspDate=gv('inspDate')||'－';
+  var inspTime=gv('inspTime')||'－';
+  var weather=gv('weather'); var tempC=gv('tempC');
+  var cap=calcCap(site);
+
+  // 基本情報行
+  var dateStr=inspDate.replace(/-/g,'/');
+  if(inspDate&&inspDate.length===10){
+    var days=['日','月','火','水','木','金','土'];
+    var dt=new Date(inspDate+'T00:00:00');
+    dateStr+='（'+days[dt.getDay()]+'）';
+  }
+
+  // 取引計器
+  var mult=parseFloat(gv('mult'))||1;
+  var mNowV=parseFloat(gv('mNowV')), mPrevV=parseFloat(gv('mPrevV'));
+  var mDiff=(!isNaN(mNowV)&&!isNaN(mPrevV))?(mNowV-mPrevV).toFixed(3):'－';
+  var mKwh=(!isNaN(mNowV)&&!isNaN(mPrevV))?Math.round((mNowV-mPrevV)*mult).toLocaleString()+'kWh':'－';
+  var mNowDt=gv('mNowDt').replace(/-/g,'/').replace(/^\d{4}\//,'');
+  var mPrevDt=gv('mPrevDt').replace(/-/g,'/').replace(/^\d{4}\//,'');
+  var mAvgEl=document.getElementById('mAvg'); var mAvg=mAvgEl?mAvgEl.textContent:'－';
+  var demEl=document.getElementById('demRate'); var demRate=demEl?demEl.textContent:'－';
+
+  // VCチェック
+  var vcHTML='';
+  var VC_GROUPS=[
+    {cat:'電線路',items:['開閉器','支持物','電線','ケーブル','避雷器']},
+    {cat:'キュービクル・電気室',items:['計器用変成器','開閉器・断路器','電力ヒューズ','遮断器','継電器・計器','碍子類','配線・電線支持物','変圧器','高圧コンデンサ','高圧リアクトル','接地装置','絶縁監視装置','施錠等']},
+    {cat:'使用場所',items:['動力回路','電灯回路','使用機器','問診の結果']}
+  ];
+  VC_GROUPS.forEach(function(g){
+    vcHTML+='<div class="vc-cat">'+g.cat+'</div>';
+    g.items.forEach(function(item){
+      var v=vcState[item]||'○';
+      var cls=v==='○'?'ok':v==='△'?'warn':v==='×'?'bad':'na';
+      // 連番付与
+      var seq=''; var seqN='';
+      if(v==='△'||v==='×'){
+        var iss=issues.find(function(i){return i.equipment===item&&!i.resolved;});
+        if(iss&&iss.seq) seqN='<sup style="font-size:6pt">'+iss.seq.replace(/[△×]/,'')+'</sup>';
+      }
+      vcHTML+='<div class="vc-item"><span class="vc-name">'+esc(item)+'</span><span class="vc-result '+cls+'">'+v+seqN+'</span></div>';
+    });
+    // 4の倍数に満たない場合は空白で埋める
+    var rem=g.items.length%4;
+    if(rem>0) for(var i=0;i<4-rem;i++) vcHTML+='<div class="vc-item"></div>';
+  });
+
+  // 指摘・記事欄
+  var remarksHTML='';
+  var ti=0,xi=0;
+  VC_GROUPS.forEach(function(g){g.items.forEach(function(item){
+    var v=vcState[item];
+    if(v==='△'||v==='×'){
+      var iss=issues.find(function(i){return i.equipment===item&&!i.resolved;});
+      if(iss){
+        if(v==='△'){ti++;remarksHTML+='<span style="color:#b45309;font-weight:700">△'+ti+'）</span>'+esc(iss.equipment||item)+'：'+esc(iss.text)+'<br>';}
+        else{xi++;remarksHTML+='<span style="color:#b91c1c;font-weight:700">×'+xi+'）</span>'+esc(iss.equipment||item)+'：'+esc(iss.text)+'<br>';}
+      }
+    }
+  });});
+  // 解消済み以外の手動指摘も追加
+  issues.filter(function(i){return !i.resolved&&!VC_GROUPS.some(function(g){return g.items.indexOf(i.equipment)>=0;});}).forEach(function(iss){
+    if(iss.type==='△'){ti++;remarksHTML+='<span style="color:#b45309;font-weight:700">△'+ti+'）</span>'+esc(iss.equipment)+'：'+esc(iss.text)+'<br>';}
+    else{xi++;remarksHTML+='<span style="color:#b91c1c;font-weight:700">×'+xi+'）</span>'+esc(iss.equipment)+'：'+esc(iss.text)+'<br>';}
+  });
+
+  // 変台ごとの表HTML生成
+  var daiTablesHTML='';
+  site.dais.forEach(function(dai){
+    // 受電V/I
+    var recvRows='<tr>'
+      +'<td class="label center">受電</td>'
+      +'<td class="val">'+fmtNum(gv(dai.id+'_recv_v_vrs'))+'</td>'
+      +'<td class="val">'+fmtNum(gv(dai.id+'_recv_v_vst'))+'</td>'
+      +'<td class="val">'+fmtNum(gv(dai.id+'_recv_v_vtr'))+'</td>'
+      +'<td class="val">'+fmtNum(gv(dai.id+'_recv_i_r'))+'</td>'
+      +'<td class="val">'+fmtNum(gv(dai.id+'_recv_i_s'))+'</td>'
+      +'<td class="val">'+fmtNum(gv(dai.id+'_recv_i_t'))+'</td>'
+      +'</tr>';
+
+    // 送り行
+    var sendRows='';
+    (dai.sends||[]).forEach(function(s){
+      sendRows+='<tr>'
+        +'<td class="label" style="font-size:5.5pt">'+esc(s.name)+'</td>'
+        +'<td class="val">'+fmtNum(gv(s.id+'_v_vrs'))+'</td>'
+        +'<td class="val">'+fmtNum(gv(s.id+'_v_vst'))+'</td>'
+        +'<td class="val">'+fmtNum(gv(s.id+'_v_vtr'))+'</td>'
+        +'<td class="val">'+fmtNum(gv(s.id+'_i_r'))+'</td>'
+        +'<td class="val">'+fmtNum(gv(s.id+'_i_s'))+'</td>'
+        +'<td class="val">'+fmtNum(gv(s.id+'_i_t'))+'</td>'
+        +'</tr>';
+    });
+
+    // 負荷行（Tr + cap + motor）
+    var loadRows='';
+    var allEq=[].concat(
+      (dai.trs||[]).map(function(t){return {eq:t,type:'tr'};}),
+      (dai.caps||[]).map(function(c){return {eq:c,type:'cap'};}),
+      (dai.motors||[]).map(function(m){return {eq:m,type:'motor'};}));
+
+    allEq.forEach(function(item){
+      var eq=item.eq, type=item.type;
+      var cap=type==='tr'?eq.kva+'kVA':type==='cap'?eq.kvar+'kvar':eq.kva.toFixed(0)+'kVA';
+      var noM=(type==='cap')||eq.noMeasure;
+      var loadEl=document.getElementById(eq.id+'_load');
+      var loadPct=loadEl?loadEl.textContent:'－';
+      var leak=noM?'－':fmtNum(gv(eq.id+'_leak'));
+      var lbs=fmtNum(gv(eq.id+'_lbs'));
+      // 機器温度
+      var mTemp='－';
+      if(type==='tr'){mTemp=fmtNum(gv(eq.id+'_trt'));}
+      else if(type==='cap'){
+        var sc=fmtNum(gv(eq.id+'_sc_t'));
+        var sr=eq.hasSR?fmtNum(gv(eq.id+'_sr_t')):null;
+        mTemp=sr?'SR:'+sr+' SC:'+sc:sc;
+      } else {mTemp=fmtNum(gv(eq.id+'_trt'));}
+
+      loadRows+='<tr>'
+        +'<td class="label" style="font-size:6pt">'+esc(eq.name)+'</td>'
+        +'<td class="center">'+esc(eq.phase)+'</td>'
+        +'<td class="center">'+cap+'</td>';
+      if(noM){
+        loadRows+='<td class="na" colspan="3">－</td><td class="na" colspan="3">－</td>'
+          +'<td class="na">－</td><td class="na">－</td>';
+      } else {
+        loadRows+='<td class="val">'+fmtNum(gv(eq.id+'_v_vrs'))+'</td>'
+          +'<td class="val">'+fmtNum(gv(eq.id+'_v_vst'))+'</td>'
+          +'<td class="val">'+fmtNum(gv(eq.id+'_v_vtr'))+'</td>'
+          +'<td class="val">'+fmtNum(gv(eq.id+'_i_r'))+'</td>'
+          +'<td class="val">'+fmtNum(gv(eq.id+'_i_s'))+'</td>'
+          +'<td class="val">'+fmtNum(gv(eq.id+'_i_t'))+'</td>'
+          +'<td class="center">'+loadPct+'</td>'
+          +'<td class="center">'+leak+'</td>';
+      }
+      loadRows+='<td class="center">'+lbs+'</td>'
+        +'<td class="center" style="font-size:6pt">'+mTemp+'</td>'
+        +'</tr>';
+    });
+
+    // GR/力率
+    var grPrev=gv(dai.id+'_gr_prev')||'－';
+    var grNow=gv(dai.id+'_gr_now')||'－';
+    var pf=gv(dai.id+'_pf')||'－';
+
+    daiTablesHTML+=''
+      +'<div class="sec-title">'+esc(dai.name)+'　受電電圧・電流</div>'
+      +'<table style="margin-bottom:1.5mm">'
+      +'<tr><th style="width:12%">区分</th>'
+      +'<th>電圧 R-S (V)</th><th>電圧 S-T (V)</th><th>電圧 T-R (V)</th>'
+      +'<th>電流 R (A)</th><th>電流 S (A)</th><th>電流 T (A)</th></tr>'
+      +recvRows+sendRows
+      +'</table>'
+      +(allEq.length>0?
+        '<div class="sec-title">'+esc(dai.name)+'　負荷・測定値'
+        +'<span style="font-weight:400;font-size:6pt;margin-left:6mm">GR電源 前回:'+grPrev+' 今回:'+grNow+' mA　力率:'+pf+'%</span></div>'
+        +'<table style="margin-bottom:2mm">'
+        +'<tr>'
+        +'<th style="width:13%" rowspan="2">名称</th>'
+        +'<th style="width:5%" rowspan="2">相</th>'
+        +'<th style="width:7%" rowspan="2">容量</th>'
+        +'<th colspan="3">電圧（V）</th>'
+        +'<th colspan="3">電流（A）</th>'
+        +'<th style="width:6%" rowspan="2">負荷率</th>'
+        +'<th style="width:7%" rowspan="2">漏洩電流<br>(mA)</th>'
+        +'<th style="width:7%" rowspan="2">開閉器温度<br>PC/LBS (℃)</th>'
+        +'<th style="width:8%" rowspan="2">機器温度<br>Tr/SC (℃)</th>'
+        +'</tr>'
+        +'<tr><th>R-S</th><th>S-T</th><th>T-R</th><th>R</th><th>S</th><th>T</th></tr>'
+        +loadRows
+        +'</table>'
+      :'');
+  });
+
+  // 発電装置
+  var genHTML='';
+  if(site.hasGenset){
+    genHTML=''
+      +'<table style="margin-bottom:2mm">'
+      +'<tr><th colspan="8">非常用発電装置</th></tr>'
+      +'<tr>'
+      +'<td class="label" style="width:11%">試運転結果</td><td class="ok">'+esc(gv('genResult'))+'</td>'
+      +'<td class="label">起動SW</td><td class="val">'+esc(gv('genSw'))+'　✓</td>'
+      +'<td class="label">自動/手動切替</td><td class="val">'+esc(gv('genMode'))+'　✓</td>'
+      +'<td class="label">復帰確認</td><td class="val">'+esc(gv('genRestore'))+'　✓</td>'
+      +'</tr><tr>'
+      +'<td class="label">電圧確立</td><td class="val">'+fmtNum(gv('genVt'))+' 秒</td>'
+      +'<td class="label">電圧AC</td><td class="val">'+fmtNum(gv('genVac'))+' V</td>'
+      +'<td class="label">負荷電流</td><td class="val">'+fmtNum(gv('genCur'))+' A</td>'
+      +'<td class="label">周波数</td><td class="val">'+fmtNum(gv('genHz'))+' Hz</td>'
+      +'</tr><tr>'
+      +'<td class="label">回転数</td><td class="val">'+fmtNum(gv('genRpm'))+' min</td>'
+      +'<td class="label">潤滑油圧</td><td class="val">'+fmtNum(gv('genOilP'))+' MPa</td>'
+      +'<td class="label">潤滑油温</td><td class="val">'+fmtNum(gv('genOilT'))+' ℃</td>'
+      +'<td class="label">冷却水温</td><td class="val">'+fmtNum(gv('genCool'))+' ℃</td>'
+      +'</tr><tr>'
+      +'<td class="label">燃料残量</td><td class="val">'+fmtNum(gv('genFuelPct'))+' %</td>'
+      +'<td class="label">蓄電池DC</td><td class="val">'+fmtNum(gv('batV'))+' V</td>'
+      +'<td class="label">充電電流</td><td class="val">'+fmtNum(gv('batI'))+' A</td>'
+      +'<td class="label">液量</td><td class="val">'+esc(gv('batLv'))+'</td>'
+      +'</tr></table>';
+  }
+
+  var reportHTML='<!DOCTYPE html><html lang="ja"><head>'
+    +'<meta charset="UTF-8">'
+    +'<meta name="viewport" content="width=device-width,initial-scale=1.0">'
+    +'<title>'+esc(docTitle)+'</title>'
+    +'<style>'
+    +'@import url(\'https://fonts.googleapis.com/css2?family=BIZ+UDGothic:wght@400;700&display=swap\');'
+    +'body{background:#e8eaed;font-family:\'BIZ UDGothic\',sans-serif;margin:0;padding:20px;display:flex;flex-direction:column;align-items:center;gap:12px}'
+    +'.print-btn{background:#1a56db;color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px}'
+    +'.page{width:210mm;min-height:297mm;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.15);box-sizing:border-box;padding:7mm 7mm 12mm;position:relative;font-size:7pt;line-height:1.3;color:#000;font-family:\'BIZ UDGothic\',sans-serif}'
+    +'.doc-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:2.5mm;padding-bottom:2mm;border-bottom:1.5px solid #1e3a5f}'
+    +'.doc-title{font-size:12pt;font-weight:700;color:#1e3a5f;letter-spacing:.04em}'
+    +'.doc-subtitle{font-size:6.5pt;color:#666;margin-top:1px}'
+    +'.office-box{text-align:right}.office-lbl{font-size:5.5pt;color:#888;margin-bottom:1px}'
+    +'.office-name{font-size:9pt;font-weight:700;color:#1e3a5f}'
+    +'.tech-name{font-size:7pt;color:#444;margin-top:1.5mm}'
+    +'.info-band{display:grid;grid-template-columns:2fr 1.4fr 0.7fr 0.9fr 0.8fr;border:0.5px solid #999;margin-bottom:2mm}'
+    +'.info-cell{border-right:0.5px solid #999;padding:1mm 1.5mm}.info-cell:last-child{border-right:none}'
+    +'.info-cell .lbl{font-size:5.5pt;color:#666}.info-cell .val{font-size:8pt;font-weight:700;margin-top:0.5mm}'
+    +'table{width:100%;border-collapse:collapse;margin-bottom:2mm}'
+    +'th,td{border:0.5px solid #999;padding:0.7mm 1mm;font-size:6.8pt;vertical-align:middle}'
+    +'th{background:#1e3a5f;color:#fff;font-weight:700;text-align:center;font-size:6.5pt;white-space:nowrap}'
+    +'td.label{background:#f0f4f8;font-weight:700;color:#222;white-space:nowrap}'
+    +'td.val{text-align:right}td.center{text-align:center}'
+    +'td.ok{color:#0f766e;font-weight:700;text-align:center}'
+    +'td.na{color:#aaa;text-align:center}'
+    +'.sec-title{background:#1e3a5f;color:#fff;font-size:7pt;font-weight:700;padding:0.8mm 2mm;margin-bottom:0}'
+    +'.vc-grid{display:grid;grid-template-columns:repeat(4,1fr);border:0.5px solid #999;margin-bottom:2mm}'
+    +'.vc-cat{grid-column:1/-1;background:#2d5f8a;color:#fff;font-size:6pt;font-weight:700;padding:0.5mm 1.5mm;border-bottom:0.5px solid #aaa}'
+    +'.vc-item{border-right:0.5px solid #ccc;border-bottom:0.5px solid #ccc;padding:0.7mm 1.2mm;display:flex;align-items:center;justify-content:space-between}'
+    +'.vc-item:nth-child(4n){border-right:none}'
+    +'.vc-name{font-size:6.2pt;color:#333}.vc-result{font-size:8pt;font-weight:700;min-width:8mm;text-align:center}'
+    +'.vc-result.ok{color:#0f766e}.vc-result.warn{color:#b45309}.vc-result.bad{color:#b91c1c}.vc-result.na{color:#aaa}'
+    +'.remarks{border:0.5px solid #999;padding:1.5mm;min-height:16mm;font-size:6.8pt;line-height:1.7;margin-bottom:2mm}'
+    +'.remarks-lbl{font-size:5.5pt;color:#666;margin-bottom:1mm;font-weight:700}'
+    +'.doc-footer{position:absolute;bottom:5mm;left:7mm;right:7mm;display:flex;justify-content:space-between;border-top:0.5px solid #ccc;padding-top:1.5mm;font-size:6pt;color:#888}'
+    +'@media print{'
+    +'body{background:none;padding:0}'
+    +'.print-btn{display:none!important}'
+    +'.page{box-shadow:none;margin:0;padding:7mm 7mm 12mm;page-break-after:always}'
+    +'.page:last-child{page-break-after:auto}'
+    +'@page{size:A4 portrait;margin:0}}'
+    +'</style></head><body>'
+    +'<button class="print-btn" onclick="window.print()">印刷 / PDF保存</button>'
+    +'<div class="page">'
+    // ヘッダー
+    +'<div class="doc-header">'
+    +'<div><div class="doc-title">'+esc(docTitle)+'</div>'
+    +'<div class="doc-subtitle">一般社団法人 中部電気管理技術者協会</div></div>'
+    +'<div class="office-box">'
+    +'<div class="office-lbl">管理技術者事務所</div>'
+    +'<div class="office-name">'+esc(officeName)+'</div>'
+    +'<div class="tech-name">管理技術者：'+esc(techName)+'</div>'
+    +'</div></div>'
+    // 基本情報
+    +'<div class="info-band">'
+    +'<div class="info-cell"><div class="lbl">事業場名</div><div class="val">'+esc(site.name)+'</div></div>'
+    +'<div class="info-cell"><div class="lbl">点検年月日</div><div class="val">'+esc(dateStr)+'</div></div>'
+    +'<div class="info-cell"><div class="lbl">時刻</div><div class="val">'+esc(inspTime)+'</div></div>'
+    +'<div class="info-cell"><div class="lbl">天候・気温</div><div class="val">'+esc(weather)+'　'+esc(tempC)+'℃</div></div>'
+    +'<div class="info-cell"><div class="lbl">設備容量</div><div class="val">'+Math.floor(cap.total).toLocaleString()+' kVA</div></div>'
+    +'</div>'
+    // 取引計器
+    +'<table>'
+    +'<tr><th colspan="8">取引計器・電力量</th></tr>'
+    +'<tr>'
+    +'<td class="label" style="width:11%">契約電力</td><td class="val">'+fmtNum(gv('contractKw'))+' kW</td>'
+    +'<td class="label">倍率</td><td class="val">'+fmtNum(mult)+'</td>'
+    +'<td class="label">力率</td><td class="val">'+fmtNum(gv('mPf'))+' %</td>'
+    +'<td class="label">需要率</td><td class="val">'+demRate+'</td>'
+    +'</tr><tr>'
+    +'<td class="label">検針（今）</td><td class="val">'+esc(mNowDt)+'　'+fmtNum(gv('mNowV'))+'</td>'
+    +'<td class="label">検針（前）</td><td class="val">'+esc(mPrevDt)+'　'+fmtNum(gv('mPrevV'))+'</td>'
+    +'<td class="label">差分</td><td class="val">'+mDiff+'</td>'
+    +'<td class="label">電力量</td><td class="val">'+mKwh+'</td>'
+    +'</tr><tr>'
+    +'<td class="label">現在電力</td><td class="val">'+fmtNum(gv('currentKw'))+' kW</td>'
+    +'<td class="label">最大電力</td><td class="val">'+fmtNum(gv('maxKw'))+' kW</td>'
+    +'<td class="label">平均</td><td class="val">'+mAvg+'</td>'
+    +'<td class="label">GR電源</td><td class="val">前'+fmtNum(gv(site.dais[0].id+'_gr_prev'))+'／今'+fmtNum(gv(site.dais[0].id+'_gr_now'))+' mA</td>'
+    +'</tr></table>'
+    // 変台テーブル群
+    +daiTablesHTML
+    // 外観目視
+    +'<div class="sec-title">外観目視点検　　良：○　要注意：△　不良：×　対象外：－</div>'
+    +'<div class="vc-grid">'+vcHTML+'</div>'
+    // 発電装置
+    +genHTML
+    // 記事欄
+    +'<div class="remarks"><div class="remarks-lbl">記事欄（指摘・助言）</div>'+(remarksHTML||'特記事項なし')+'</div>'
+    // フッター
+    +'<div class="doc-footer">'
+    +'<span>'+esc(officeName)+'　管理技術者：'+esc(techName)+'</span>'
+    +'<span>'+esc(dateStr)+'　点検</span>'
+    +'</div>'
+    +'</div></body></html>';
+
+  var w=window.open('','_blank');
+  if(w){ w.document.write(reportHTML); w.document.close(); }
+  else { alert('ポップアップがブロックされています。ブラウザの設定でポップアップを許可してください。'); }
+}
 </script>
 </body>
 </html>
