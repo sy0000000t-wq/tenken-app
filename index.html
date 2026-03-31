@@ -1158,29 +1158,49 @@ function saveInsp(){
 }
 
 function sendToGas(site, date){
-  // 測定値を収集してGASに送信
   var techName=LS.get('v7_tech_name')||gv('techName');
   var inspTime=gv('inspTime')||'';
   var weather=gv('weather')||'';
   var tempC=gv('tempC')||'';
+  var contractKw=gv('contractKw')||'';
+  var mPf=gv('mPf')||'';
+  var currentKwCalc=document.getElementById('currentKwCalc')?document.getElementById('currentKwCalc').textContent:'';
+  var maxKwCalc=document.getElementById('maxKwCalc')?document.getElementById('maxKwCalc').textContent:'';
+  var mKwh=document.getElementById('mKwh')?document.getElementById('mKwh').textContent:'';
+  var demRate=document.getElementById('demRate')?document.getElementById('demRate').textContent:'';
+  var vcSummary=Object.keys(vcState).filter(function(k){return vcState[k]==='△'||vcState[k]==='×';}).join('、')||'異常なし';
+  var issueText=issues.filter(function(i){return !i.resolved;}).map(function(i){return (i.seq||i.type)+'）'+i.equipment+'：'+i.text;}).join(' / ');
 
-  // 各変台のデータを収集
   var rows=[];
   site.dais.forEach(function(d){
-    // 受電V/I
-    var recvRow={
+    // 受電行
+    rows.push({
       date:date, time:inspTime, siteName:site.name, techName:techName,
-      weather:weather, tempC:tempC, daiName:d.name, eqName:'受電', eqType:'受電',
+      weather:weather, tempC:tempC,
+      daiName:d.name, eqName:'受電', eqType:'受電',
       vRS:gv(d.id+'_recv_v_vrs'), vST:gv(d.id+'_recv_v_vst'), vTR:gv(d.id+'_recv_v_vtr'),
       iR:gv(d.id+'_recv_i_r'), iS:gv(d.id+'_recv_i_s'), iT:gv(d.id+'_recv_i_t'),
-      loadRate:'', leak:'', lbsTemp:'', eqTemp:'',
-      vcResult:'', contractKw:gv('contractKw'), maxKw:gv('maxKw'),
-      mKwh:document.getElementById('mKwh')?document.getElementById('mKwh').textContent:'',
-      demRate:document.getElementById('demRate')?document.getElementById('demRate').textContent:''
-    };
-    rows.push(recvRow);
-
-    // 各設備
+      grPrev:gv(d.id+'_gr_prev'), grNow:gv(d.id+'_gr_now'), pf:gv(d.id+'_pf'),
+      loadRate:'', leak:'', lbsTemp:gv(d.id+'_lbs_recv'), eqTemp:'',
+      contractKw:contractKw, mPf:mPf,
+      currentKw:currentKwCalc, maxKw:maxKwCalc,
+      mKwh:mKwh, demRate:demRate,
+      vcResult:vcSummary, issueText:issueText
+    });
+    // 送り行
+    (d.sends||[]).forEach(function(s){
+      rows.push({
+        date:date, time:inspTime, siteName:site.name, techName:techName,
+        weather:weather, tempC:tempC,
+        daiName:d.name, eqName:s.name, eqType:'送り',
+        vRS:gv(s.id+'_v_vrs'), vST:gv(s.id+'_v_vst'), vTR:gv(s.id+'_v_vtr'),
+        iR:gv(s.id+'_i_r'), iS:gv(s.id+'_i_s'), iT:gv(s.id+'_i_t'),
+        grPrev:'', grNow:'', pf:'', loadRate:'', leak:'', lbsTemp:'', eqTemp:'',
+        contractKw:'', mPf:'', currentKw:'', maxKw:'', mKwh:'', demRate:'',
+        vcResult:'', issueText:''
+      });
+    });
+    // Tr・SC・Motor行
     [].concat(
       (d.trs||[]).map(function(t){return {eq:t,type:'Tr'};}),
       (d.caps||[]).map(function(c){return {eq:c,type:'SC'};}),
@@ -1189,35 +1209,30 @@ function sendToGas(site, date){
       var eq=item.eq;
       var loadEl=document.getElementById(eq.id+'_load');
       var scT=gv(eq.id+'_sc_t'), srT=eq.hasSR?gv(eq.id+'_sr_t'):'';
-      var eqTemp=item.type==='Tr'?gv(eq.id+'_trt'):(srT?'SR:'+srT+' SC:'+scT:scT);
+      var eqTemp=item.type==='Tr'?gv(eq.id+'_trt')
+        :item.type==='SC'?(srT?'SR:'+srT+' SC:'+scT:scT)
+        :gv(eq.id+'_trt');
       rows.push({
         date:date, time:inspTime, siteName:site.name, techName:techName,
-        weather:weather, tempC:tempC, daiName:d.name, eqName:eq.name, eqType:item.type,
+        weather:weather, tempC:tempC,
+        daiName:d.name, eqName:eq.name, eqType:item.type,
         vRS:gv(eq.id+'_v_vrs'), vST:gv(eq.id+'_v_vst'), vTR:gv(eq.id+'_v_vtr'),
         iR:gv(eq.id+'_i_r'), iS:gv(eq.id+'_i_s'), iT:gv(eq.id+'_i_t'),
+        grPrev:'', grNow:'', pf:'',
         loadRate:loadEl?loadEl.textContent:'',
         leak:gv(eq.id+'_leak'),
         lbsTemp:gv(eq.id+'_lbs'),
         eqTemp:eqTemp,
-        vcResult:'', contractKw:'', maxKw:'', mKwh:'', demRate:''
+        contractKw:'', mPf:'', currentKw:'', maxKw:'', mKwh:'', demRate:'',
+        vcResult:'', issueText:''
       });
     });
   });
 
-  // 目視結果を最初の行に付加
-  var vcSummary=Object.keys(vcState).filter(function(k){return vcState[k]==='△'||vcState[k]==='×';}).join('、');
-  if(rows.length>0) rows[0].vcResult=vcSummary||'異常なし';
-
-  // 指摘内容
-  var issueText=issues.filter(function(i){return !i.resolved;}).map(function(i){return i.seq+'）'+i.equipment+'：'+i.text;}).join('\n');
-  if(rows.length>0) rows[0].issueText=issueText;
-
   var gasUrl=LS.get('v7_gas_url')||'';
   var payload={sheetName:site.name, rows:rows};
-
-  fetch(gasUrl, {
-    method:'POST',
-    mode:'no-cors',
+  fetch(gasUrl,{
+    method:'POST', mode:'no-cors',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify(payload)
   }).then(function(){
