@@ -241,19 +241,19 @@ textarea{resize:vertical;line-height:1.5}
 // PRESET（ストレージに関係なく毎回マージ）
 // ══════════════════════════════════════════
 var PRESET = [
-  {id:'toyoeiKagaku',name:'豊栄化学㈱ 第2工場',mult:2400,hasGenset:true,dais:[
+  {id:'toyoeiKagaku',name:'豊栄化学㈱ 第2工場',mult:2400,contractKw:920,hasGenset:true,dais:[
     {id:'d1',name:'受電変台',sends:[],
-     trs:[{id:'t1',name:'③:200V №2',phase:'三相',kva:300},{id:'t2',name:'④:200V №1',phase:'三相',kva:300},{id:'t3',name:'⑤:電灯',phase:'単相',kva:100},{id:'t4',name:'⑦:400V №1',phase:'三相',kva:750},{id:'t5',name:'⑦:400V №2',phase:'三相',kva:750},{id:'t6',name:'⑩:400V動力',phase:'三相',kva:500}],
+     trs:[{id:'t1',name:'③:200V №2',phase:'三相',kva:300,voltage:200},{id:'t2',name:'④:200V №1',phase:'三相',kva:300,voltage:200},{id:'t3',name:'⑤:電灯',phase:'単相',kva:100,voltage:200},{id:'t4',name:'⑦:400V №1',phase:'三相',kva:750,voltage:400},{id:'t5',name:'⑦:400V №2',phase:'三相',kva:750,voltage:400},{id:'t6',name:'⑩:400V動力',phase:'三相',kva:500,voltage:400}],
      caps:[{id:'c1',name:'⑨:SR,SC',kvar:160,hasSR:true},{id:'c2',name:'⑧:SC',kvar:250,hasSR:false}],
      motors:[]}
   ]},
-  {id:'ellife',name:'エルアライフ',mult:10,hasGenset:true,dais:[
+  {id:'ellife',name:'エルアライフ',mult:10,contractKw:63,hasGenset:true,dais:[
     {id:'d1',name:'受電変台',sends:[],
-     trs:[{id:'t1',name:'電灯No.1',phase:'単相',kva:100},{id:'t2',name:'電灯No.2',phase:'単相',kva:100},{id:'t3',name:'動力',phase:'三相',kva:100}],
+     trs:[{id:'t1',name:'電灯No.1',phase:'単相',kva:100,voltage:200},{id:'t2',name:'電灯No.2',phase:'単相',kva:100,voltage:200},{id:'t3',name:'動力',phase:'三相',kva:100,voltage:200}],
      caps:[{id:'c1',name:'SR,SC',kvar:36,hasSR:true}],
      motors:[]}
   ]},
-  {id:'hekinan',name:'㈱豊栄商会 碧南工場',mult:3600,hasGenset:false,dais:[
+  {id:'hekinan',name:'㈱豊栄商会 碧南工場',mult:3600,contractKw:1950,hasGenset:false,dais:[
     {id:'d1',name:'受電第1変台',sends:[{id:'s1',name:'第2変台への送り'},{id:'s2',name:'第3変台への送り'}],
      trs:[{id:'t1',name:'E:200V動力',phase:'三相',kva:1000},{id:'t2',name:'D:200V動力',phase:'三相',kva:1500},{id:'t3',name:'C:400V動力',phase:'三相',kva:1000},{id:'t4',name:'B:200V動力',phase:'三相',kva:500},{id:'t5',name:'A:電灯',phase:'単相',kva:100}],
      caps:[{id:'c1',name:'SR,SC',kvar:300,hasSR:true}],motors:[]},
@@ -264,7 +264,7 @@ var PRESET = [
      trs:[{id:'t10',name:'③:電灯',phase:'単相',kva:100},{id:'t11',name:'④:200V動力',phase:'三相',kva:500}],
      caps:[{id:'c3',name:'SR,SC',kvar:300,hasSR:true}],motors:[]}
   ]},
-  {id:'honsha',name:'㈱豊栄商会 本社工場',mult:1,hasGenset:false,dais:[
+  {id:'honsha',name:'㈱豊栄商会 本社工場',mult:1,contractKw:605,hasGenset:false,dais:[
     {id:'d1',name:'第1変台',sends:[{id:'s1',name:'第2変台への送り'}],
      trs:[{id:'t1',name:'A:電灯',phase:'単相',kva:150},{id:'t2',name:'B:アルミ第1',phase:'三相',kva:750},{id:'t3',name:'D:アルミ第2',phase:'三相',kva:750}],
      caps:[{id:'c1',name:'SR,SC No.1',kvar:250,hasSR:true},{id:'c2',name:'SR,SC No.2',kvar:250,hasSR:true},{id:'c3',name:'SR,SC No.3',kvar:200,hasSR:true},{id:'c4',name:'SR,SC No.4',kvar:250,hasSR:true}],
@@ -273,7 +273,7 @@ var PRESET = [
      trs:[{id:'t4',name:'②:200V動力',phase:'三相',kva:200},{id:'t5',name:'A:400V動力',phase:'三相',kva:1000}],
      caps:[{id:'c5',name:'SR,SC',kvar:200,hasSR:true}],motors:[]}
   ]},
-  {id:'honsha3',name:'㈱豊栄商会 本社工場第3工場',mult:10,hasGenset:false,dais:[
+  {id:'honsha3',name:'㈱豊栄商会 本社工場第3工場',mult:10,contractKw:155,hasGenset:false,dais:[
     {id:'d1',name:'受電変台',sends:[],
      trs:[
        {id:'t1',name:'電灯',phase:'単相',kva:50},
@@ -283,7 +283,7 @@ var PRESET = [
      caps:[{id:'c1',name:'SR,SC',kvar:100,hasSR:true}],
      motors:[]}
   ]},
-  {id:'akashi',name:'㈱豊栄商会 明石工場',mult:3600,hasGenset:false,dais:[
+  {id:'akashi',name:'㈱豊栄商会 明石工場',mult:3600,contractKw:1800,hasGenset:false,dais:[
     {id:'d1',name:'受電変台(第3工場)',sends:[{id:'s1',name:'第1変台への送り'},{id:'s2',name:'第2変台への送り'},{id:'s3',name:'第3変台への送り'}],
      trs:[{id:'t1',name:'電灯',phase:'単相',kva:30}],caps:[],motors:[]},
     {id:'d2',name:'第1変台(第3工場)',sends:[],
@@ -403,8 +403,10 @@ function calcCap(site){
   });
   return {trKva:trKva, motKva:motKva, total:trKva+motKva};
 }
-function ratedA(kva,phase){
-  return kva*1000/((phase==='単相'?105:210)*(phase==='単相'?1:Math.sqrt(3)));
+function ratedA(kva,phase,voltage){
+  var v=parseFloat(voltage)||(phase==='単相'?200:200);
+  var sq=phase==='単相'?1:Math.sqrt(3);
+  return kva*1000/(v*sq);
 }
 
 // ══════════════════════════════════════════
@@ -465,6 +467,7 @@ function renderEditScreen(site){
   w.innerHTML+='<div class="card"><div class="chdr">物件基本情報</div><div class="cbdy">'
     +'<div class="f"><label>物件名</label><input type="text" id="eName" value="'+esc(site.name||'')+'" placeholder="例：豊栄化学㈱ 第2工場"></div>'
     +'<div class="f2">'
+    +'<div class="f"><label>契約電力 <span style="font-weight:400;color:var(--t3)">kW（半固定）</span></label><input type="number" id="eContractKw" value="'+(site.contractKw||'')+'"></div>'
     +'<div class="f"><label>取引計器 倍率</label><input type="number" id="eMult" value="'+(site.mult||1)+'"></div>'
     +'<div class="f"><label>発電装置</label><select id="eGenset"><option value="0"'+(site.hasGenset?'':' selected')+'>なし</option><option value="1"'+(site.hasGenset?' selected':'')+'>あり</option></select></div>'
     +'</div></div></div>';
@@ -503,9 +506,11 @@ function appendDaiCard(wrap, dai){
     +'<div class="edit-sect"><div class="edit-sect-hdr">▶ 高圧送り</div>'
     +'<div class="sends-wrap">'+((dai.sends||[]).map(renderSendRow).join(''))+'</div>'
     +'<button class="btn-add-sm no-print" onclick="addSendRow(this)">＋ 送りを追加</button></div>'
+    +'<div class="edit-sect"><div class="edit-sect-hdr">GR電源測定</div>'
+    +'<select class="dai-gr-sel" style="width:100%;font-size:13px;padding:7px 9px;border:1px solid var(--bd);border-radius:6px;font-family:inherit"><option value="1"'+(dai.hasGR!==false?' selected':'')+'>測定する</option><option value="0"'+(dai.hasGR===false?' selected':'')+'>測定しない</option></select></div>'
     // トランス
     +'<div class="edit-sect"><div class="edit-sect-hdr" style="color:var(--ok)">トランス</div>'
-    +'<div class="eq-lbl" style="display:grid;grid-template-columns:1fr 80px 90px 36px;gap:6px;padding:0 2px"><span>名称</span><span>相</span><span>kVA</span><span></span></div>'
+    +'<div class="eq-lbl" style="display:grid;grid-template-columns:1fr 70px 65px 65px 36px;gap:6px;padding:0 2px"><span>名称</span><span>相</span><span>kVA</span><span>定格V</span><span></span></div>'
     +'<div class="trs-wrap">'+((dai.trs||[]).map(renderTrRow).join(''))+'</div>'
     +'<button class="btn-add-sm no-print" onclick="addTrRow(this)">＋ トランスを追加</button></div>'
     // コンデンサ
@@ -563,7 +568,7 @@ function addSendRow(btn){
 function addTrRow(btn){
   var wrap=btn.previousElementSibling;
   var tmp=document.createElement('div');
-  tmp.innerHTML=renderTrRow({id:'t'+Date.now(),name:'',phase:'三相',kva:''});
+  tmp.innerHTML=renderTrRow({id:'t'+Date.now(),name:'',phase:'三相',kva:'',voltage:''});
   wrap.appendChild(tmp.firstChild);
 }
 function addCapRow(btn){
@@ -597,7 +602,7 @@ function saveEditAndStart(){
     dc.querySelectorAll('[data-trid]').forEach(function(row){
       var inputs=row.querySelectorAll('input'), sel=row.querySelector('select');
       if(!inputs[0])return;
-      trs.push({id:row.dataset.trid, name:inputs[0].value, phase:sel?sel.value:'三相', kva:parseFloat(inputs[1]&&inputs[1].value)||0});
+      trs.push({id:row.dataset.trid, name:inputs[0].value, phase:sel?sel.value:'三相', kva:parseFloat(inputs[1]&&inputs[1].value)||0, voltage:parseFloat(inputs[2]&&inputs[2].value)||0});
     });
     dc.querySelectorAll('[data-capid]').forEach(function(row){
       var inputs=row.querySelectorAll('input'), sel=row.querySelector('select');
@@ -612,10 +617,10 @@ function saveEditAndStart(){
       var kva=unit==='kva'?cap:cap/0.8;
       motors.push({id:row.dataset.motid, name:inputs[0].value, kva:kva, isKva:unit==='kva', kw:unit==='kw'?cap:null});
     });
-    dais.push({id:daiId, name:daiName, sends:sends, trs:trs, caps:caps, motors:motors});
+    var grSel=dc.querySelector('.dai-gr-sel'); var hasGR=!grSel||grSel.value==='1'; dais.push({id:daiId, name:daiName, sends:sends, trs:trs, caps:caps, motors:motors, hasGR:hasGR});
   });
 
-  var site={id:editSiteId, name:name, mult:mult, hasGenset:hasGenset, dais:dais};
+  var contractKw=parseFloat((document.getElementById('eContractKw')||{}).value)||0; var site={id:editSiteId, name:name, mult:mult, contractKw:contractKw, hasGenset:hasGenset, dais:dais};
   var idx=sites.findIndex(function(s){return s.id===editSiteId;});
   if(idx>=0) sites[idx]=site; else sites.push(site);
   saveExtraSites();
@@ -642,6 +647,20 @@ function startInsp(siteId){
     var mk=document.getElementById('mult'); if(mk)mk.value=site.mult||1;
     var tn=document.getElementById('techName');
     if(tn&&!tn.value){try{tn.value=LS.get('v7_tech_name')||'';}catch(e){}}
+    // 前回値の引き継ぎ
+    try{
+      var prev=JSON.parse(LS.get('v7_prev_'+siteId)||'{}');
+      // 検針前回値
+      var pdt=document.getElementById('mPrevDt'); if(pdt&&prev.mNowDt) pdt.value=prev.mNowDt;
+      var pv2=document.getElementById('mPrevV'); if(pv2&&prev.mNowV) pv2.value=prev.mNowV;
+      // GR前回値（各変台）
+      var site2=sites.find(function(s){return s.id===siteId;});
+      if(site2) site2.dais.forEach(function(d){
+        var grEl=document.getElementById(d.id+'_gr_prev');
+        if(grEl&&prev['gr_'+d.id]) grEl.value=prev['gr_'+d.id];
+      });
+      calcMeter();
+    }catch(e){}
   },80);
 }
 function pad(n){return n<10?'0'+n:''+n;}
@@ -698,23 +717,28 @@ function hBasic(){return '<div class="card"><div class="chdr">基本情報</div>
 
 function hMeter(site){
   var cap=calcCap(site).total;
+  var mult=site.mult||1;
   return '<div class="card"><div class="chdr">取引計器・電力量</div><div class="cbdy">'
-  +'<div class="f"><label>契約電力 <span class="u">kW</span></label><input type="number" id="contractKw"></div>'
-  +'<div class="f"><label>現在電力 <span class="u">kW</span></label><input type="number" id="currentKw"></div>'
-  +'<div class="f"><label>倍率</label><input type="number" id="mult" oninput="calcMeter()"></div>'
+  +'<div class="f"><label>契約電力 <span class="u">kW</span></label>'
+  +'<div class="atag">● 設備登録から引き継ぎ（変更可）</div>'
+  +'<input type="number" id="contractKw" value="'+(site.contractKw||'')+'"></div>'
+  +'<div class="f"><label>現在電力　検針値</label><input type="number" id="currentKwRaw" step="0.001" oninput="calcMeter()"></div>'
+  +'<div class="f"><label>現在電力 <span class="u">kW</span></label><div class="atag">● 自動計算（検針値×倍率）</div><div class="cv neu" id="currentKwCalc">－</div></div>'
+  +'<div class="f"><label>最大電力　検針値</label><input type="number" id="maxKwRaw" step="0.001" oninput="calcMeter()"></div>'
+  +'<div class="f"><label>最大電力 <span class="u">kW</span></label><div class="atag">● 自動計算（検針値×倍率）</div><div class="cv neu" id="maxKwCalc">－</div></div>'
+  +'<div class="f"><label>倍率</label><input type="number" id="mult" value="'+mult+'" oninput="calcMeter()"></div>'
   +'<div class="f"><label>力率 <span class="u">%</span></label><input type="number" id="mPf"></div>'
   +'<hr class="dv">'
   +'<div class="f"><label>検針月日（今）</label><input type="date" id="mNowDt" oninput="calcMeter()"></div>'
   +'<div class="f"><label>指示値（今）</label><input type="number" id="mNowV" step="0.001" oninput="calcMeter()"></div>'
-  +'<div class="f"><label>検針月日（前）</label><input type="date" id="mPrevDt" oninput="calcMeter()"></div>'
-  +'<div class="f"><label>指示値（前）</label><input type="number" id="mPrevV" step="0.001" oninput="calcMeter()"></div>'
+  +'<div class="f"><label>検針月日（前）<span class="u" style="color:var(--ok)">　前回から引き継ぎ</span></label><input type="date" id="mPrevDt" oninput="calcMeter()"></div>'
+  +'<div class="f"><label>指示値（前）<span class="u" style="color:var(--ok)">　前回から引き継ぎ</span></label><input type="number" id="mPrevV" step="0.001" oninput="calcMeter()"></div>'
   +'<hr class="dv">'
   +'<div class="f"><label>差分</label><div class="atag">● 自動計算</div><div class="cv neu" id="mDiff">－</div></div>'
   +'<div class="f"><label>電力量 <span class="u">kWh/月</span></label><div class="atag">● 自動計算</div><div class="cv neu" id="mKwh">－</div></div>'
   +'<div class="f2"><div class="f"><label>平均 <span class="u">kWh/日</span></label><div class="atag">● 自動計算</div><div class="cv neu" id="mAvg">－</div></div>'
   +'<div class="f"><label>需要率 <span class="u">%</span></label><div class="atag">● 自動計算</div><div class="cv neu" id="demRate">－</div></div></div>'
-  +'<div class="f2"><div class="f"><label>設備容量 <span class="u">kVA</span></label><div class="atag">● 自動計算</div><div class="cv neu" id="facCap">'+Math.floor(cap).toLocaleString()+' kVA</div></div>'
-  +'<div class="f"><label>最大電力 <span class="u">kW</span></label><input type="number" id="maxKw" oninput="calcMeter()"></div></div>'
+  +'<div class="f2"><div class="f"><label>設備容量 <span class="u">kVA</span></label><div class="atag">● 自動計算</div><div class="cv neu" id="facCap">'+Math.floor(cap).toLocaleString()+' kVA</div></div></div>'
   +'</div></div>';}
 
 function hDai(dai){
@@ -725,8 +749,10 @@ function hDai(dai){
   h+=f3V(dai.id+'_recv_v','chkVolt(\''+dai.id+'\')');
   h+='<div id="volt_'+dai.id+'" class="alrt">⚠ 受電電圧が基準値（6,000〜6,900V）を外れています</div>';
   h+=f3I(dai.id+'_recv_i','');
-  h+='<div class="f"><label>GR電源 前回 <span class="u">mA</span></label><input type="number" id="'+dai.id+'_gr_prev"></div>';
-  h+='<div class="f"><label>GR電源 今回 <span class="u">mA</span></label><input type="number" id="'+dai.id+'_gr_now"></div>';
+  if(dai.hasGR!==false){
+    h+='<div class="f"><label>GR電源 前回 <span class="u">mA</span><span class="u" style="color:var(--ok)">　前回から引き継ぎ</span></label><input type="number" id="'+dai.id+'_gr_prev"></div>';
+    h+='<div class="f"><label>GR電源 今回 <span class="u">mA</span></label><input type="number" id="'+dai.id+'_gr_now"></div>';
+  }
   h+='<div class="f"><label>力率 <span class="u">%</span></label><input type="number" id="'+dai.id+'_pf"></div>';
   // 送り
   if(dai.sends&&dai.sends.length){
@@ -741,10 +767,10 @@ function hDai(dai){
   if(dai.trs&&dai.trs.length){
     h+='<hr class="dv"><div class="slb tr">トランス ― 電圧・電流・漏洩電流</div>';
     dai.trs.forEach(function(tr){
-      var ra=ratedA(tr.kva,tr.phase).toFixed(0);
-      h+='<div class="eq-block"><div class="eq-name">'+esc(tr.name)+'<span class="eq-sub">　'+esc(tr.phase)+' '+tr.kva+'kVA　定格'+ra+'A</span></div>';
+      var ra=ratedA(tr.kva,tr.phase,tr.voltage).toFixed(0);
+      var vLabel=tr.voltage?tr.voltage+'V':''; h+='<div class="eq-block"><div class="eq-name">'+esc(tr.name)+'<span class="eq-sub">　'+esc(tr.phase)+' '+tr.kva+'kVA'+(vLabel?' '+vLabel:'')+'　定格'+ra+'A</span></div>';
       h+=f3V(tr.id+'_v','');
-      h+=f3I(tr.id+'_i','calcLoad(\''+tr.id+'\','+tr.kva+',\''+tr.phase+'\')');
+      h+=f3I(tr.id+'_i','calcLoad(\''+tr.id+'\','+tr.kva+',\''+tr.phase+'\','+(tr.voltage||0)+')');
       h+='<div class="f"><label>漏洩電流 <span class="u">mA</span></label>'
         +'<input type="number" id="'+tr.id+'_leak" step="0.1" data-leak="'+tr.id+'">'
         +'<div id="'+tr.id+'_leakbox"></div></div>'
@@ -901,11 +927,11 @@ function chkVolt(daiId){
   var al=document.getElementById('volt_'+daiId); if(!al)return;
   al.classList.toggle('show',vals.length>0&&(Math.min.apply(null,vals)<6000||Math.max.apply(null,vals)>6900));
 }
-function calcLoad(trId,kva,phase){
+function calcLoad(trId,kva,phase,voltage){
   var vals=['r','s','t'].map(function(k){var el=document.getElementById(trId+'_i_'+k);return el?parseFloat(el.value):NaN;}).filter(function(v){return !isNaN(v);});
   var el=document.getElementById(trId+'_load'); if(!el)return;
   if(!vals.length){el.textContent='－';el.className='cv neu';return;}
-  var pct=Math.max.apply(null,vals)/ratedA(kva,phase)*100;
+  var pct=Math.max.apply(null,vals)/ratedA(kva,phase,voltage)*100;
   el.textContent=pct.toFixed(0)+'%';
   el.className=pct>=90?'cv er':pct>=70?'cv wn':'cv';
 }
@@ -955,7 +981,15 @@ function drawSpark(cid,data,color){
 function calcMeter(){
   function gv(id){var el=document.getElementById(id);return el?parseFloat(el.value):NaN;}
   function sv(id,v,cls){var el=document.getElementById(id);if(el){el.textContent=v;el.className='cv '+(cls||'neu');}}
-  var nv=gv('mNowV'),pv=gv('mPrevV'),mult=gv('mult')||1,maxKw=gv('maxKw');
+  var nv=gv('mNowV'),pv=gv('mPrevV'),mult=parseFloat(gv('mult'))||1;
+  var maxKwRaw=parseFloat(gv('maxKwRaw'));
+  var maxKw=(!isNaN(maxKwRaw))?maxKwRaw*mult:NaN;
+  var mkEl=document.getElementById('maxKwCalc');
+  if(mkEl) mkEl.textContent=(!isNaN(maxKwRaw))?Math.floor(maxKw).toLocaleString()+' kW':'－';
+  var curRaw=parseFloat(gv('currentKwRaw'));
+  var curKw=(!isNaN(curRaw))?curRaw*mult:NaN;
+  var ckEl=document.getElementById('currentKwCalc');
+  if(ckEl) ckEl.textContent=(!isNaN(curRaw))?Math.floor(curKw).toLocaleString()+' kW':'－';
   var nd=document.getElementById('mNowDt'), pd=document.getElementById('mPrevDt');
   if(!isNaN(nv)&&!isNaN(pv)){
     var diff=nv-pv; sv('mDiff',diff.toFixed(3));
@@ -1101,6 +1135,18 @@ function saveInsp(){
   LS.set('v7_vc_'+curId,JSON.stringify(vcState));
   LS.set('v7_iss_'+curId,JSON.stringify({issues:issues,seq:issSeq}));
   LS.set('v7_leak',JSON.stringify(leakHist));
+  // 次回引き継ぎ用に今回値を保存
+  try{
+    var prevData={
+      mNowDt:gv('mNowDt'), mNowV:gv('mNowV')
+    };
+    var site3=sites.find(function(s){return s.id===curId;});
+    if(site3) site3.dais.forEach(function(d){
+      var nowEl=document.getElementById(d.id+'_gr_now');
+      if(nowEl&&nowEl.value) prevData['gr_'+d.id]=nowEl.value;
+    });
+    LS.set('v7_prev_'+curId,JSON.stringify(prevData));
+  }catch(e){}
 
   // GASへのデータ送信
   var gasUrl=LS.get('v7_gas_url')||'';
@@ -1488,8 +1534,8 @@ function printReport(){
     +'<td class="label">差分</td><td class="val">'+mDiff+'</td>'
     +'<td class="label">電力量</td><td class="val">'+mKwh+'</td>'
     +'</tr><tr>'
-    +'<td class="label">現在電力</td><td class="val">'+fmtNum(gv('currentKw'))+' kW</td>'
-    +'<td class="label">最大電力</td><td class="val">'+fmtNum(gv('maxKw'))+' kW</td>'
+    +'<td class="label">現在電力</td><td class="val">'+(!isNaN(parseFloat(gv('currentKwRaw')))?Math.floor(parseFloat(gv('currentKwRaw'))*mult).toLocaleString():'-')+' kW</td>'
+    +'<td class="label">最大電力</td><td class="val">'+(document.getElementById('maxKwCalc')?document.getElementById('maxKwCalc').textContent:'－')+'</td>'
     +'<td class="label">平均</td><td class="val">'+mAvg+'</td>'
     +'<td class="label">GR電源</td><td class="val">前'+fmtNum(gv(site.dais[0].id+'_gr_prev'))+'／今'+fmtNum(gv(site.dais[0].id+'_gr_now'))+' mA</td>'
     +'</tr></table>'
