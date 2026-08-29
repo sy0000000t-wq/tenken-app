@@ -223,6 +223,16 @@ textarea{resize:vertical;line-height:1.5}
       </div>
       <button class="btn-nx" style="width:100%;padding:12px" onclick="refreshApp()">🔄 最新版に更新（キャッシュ削除）</button>
     </div></div>
+    <div class="card"><div class="chdr">Googleドライブ同期　<span id="driveBadge" style="font-size:11px;font-weight:normal">この端末のみ</span></div><div class="cbdy">
+      <div style="font-size:11px;color:var(--t3);margin-bottom:10px;line-height:1.6">
+        ドライブに繋ぐと、<b>iPad・iPhone・PCで同じデータ</b>を使えます。
+        ファイルの書き出しと読み込みは要りません。<br>
+        保存先はご自身のドライブの「<b>点検データ.json</b>」1ファイルです。
+        許可を求める権限は<b>このアプリが作ったファイルだけ</b>で、ドライブの他のファイルは見えません。
+      </div>
+      <div id="driveButtons"></div>
+      <div id="driveStatus" style="font-size:11px;color:var(--t3);margin-top:8px;line-height:1.5"></div>
+    </div></div>
     <div class="card"><div class="chdr">バックアップ（1ファイルにまとめて保存）</div><div class="cbdy">
       <div style="font-size:11px;color:var(--t3);margin-bottom:10px;line-height:1.6">
         <b>設備登録</b>に加えて、<b>前回値・漏洩電流の履歴・指摘事項・目視点検の結果・コメント</b>を1つのファイルに保存します。<br>
@@ -327,6 +337,7 @@ window.onload = function(){
   loadStorage();
   renderHome();
   resumeDraftIfAny(); // 入力途中のデータがあれば自動で続きから
+  try{ DRIVE.boot(); }catch(e){} // つないでいればドライブから読み直す
   var dc=document.getElementById('drawCanvas');
   if(dc){
     dc.addEventListener('pointerdown',drawStart);
@@ -429,7 +440,323 @@ function delSite(siteId){
 function saveExtraSites(){
   // 全物件を保存（プリセットの編集内容もツール改修後に残す）
   LS.set('v7_extra_sites', JSON.stringify(sites));
+  try{ DRIVE.scheduleSync(); }catch(e){} // ドライブに繋いでいればまとめて送る
 }
+
+// ══════════════════════════════════════════
+// Googleドライブ同期
+//   端末間の受け渡しを自動にする。データはご自身のドライブの1ファイル
+//   「点検データ.json」に保存され、外部のサーバーは経由しない。
+//   要求する権限は drive.file のみで、このアプリが作ったファイル以外は見えない。
+//
+//   既存の「バックアップを保存／読み込む」はそのまま残してあるので、
+//   うまくいかないときは従来どおりファイルでの受け渡しに戻せる。
+// ══════════════════════════════════════════
+var DRIVE = (function(){
+  var CLIENT_ID='321043472865-6ajar34nqq70sn057luld43r525p61rj.apps.googleusercontent.com';
+  var SCOPE='https://www.googleapis.com/auth/drive.file';
+  var FILE_NAME='点検データ.json';
+  var API='https://www.googleapis.com/drive/v3';
+  var UPLOAD='https://www.googleapis.com/upload/drive/v3';
+
+  var TOKEN_KEY='v7_drive_token';   // 有効なうちは再サインインを求めない
+  var FLAG_KEY ='v7_drive_on';      // 前回つないでいたか
+  var REV_KEY  ='v7_drive_rev';     // 最後に読み書きしたドライブ側の版
+
+  var token=null, tokenClient=null, fileId=null, gisLoaded=false;
+  var ready=false;   // 最初の読み込みが終わるまで保存しない
+  var busy=false;
+
+  function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+  function lsSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+  function lsDel(k){ try{ localStorage.removeItem(k); }catch(e){} }
+
+  function loadToken(){
+    try{
+      var raw=lsGet(TOKEN_KEY); if(!raw) return null;
+      var t=JSON.parse(raw);
+      if(!t||!t.accessToken||!t.expiresAt) return null;
+      if(t.expiresAt<=Date.now()){ lsDel(TOKEN_KEY); return null; }
+      return t;
+    }catch(e){ return null; }
+  }
+  function saveToken(t){ if(t) lsSet(TOKEN_KEY,JSON.stringify(t)); else lsDel(TOKEN_KEY); }
+
+  function isConnected(){ return lsGet(FLAG_KEY)==='1'; }
+  function isOffline(err){
+    if(typeof navigator!=='undefined' && navigator.onLine===false) return true;
+    var m=(err&&err.message)||String(err||'');
+    return /Failed to fetch|NetworkError|Load failed|読み込めませんでした/i.test(m);
+  }
+
+  // Googleのログイン用スクリプトを必要になった時点で読み込む
+  function loadGis(){
+    return new Promise(function(resolve,reject){
+      if(gisLoaded&&window.google&&window.google.accounts){ resolve(); return; }
+      var s=document.createElement('script');
+      s.src='https://accounts.google.com/gsi/client'; s.async=true;
+      s.onload=function(){ gisLoaded=true; resolve(); };
+      s.onerror=function(){ reject(new Error('Googleのログイン画面を読み込めませんでした')); };
+      document.head.appendChild(s);
+    });
+  }
+
+  function getToken(interactive){
+    if(token&&token.expiresAt>Date.now()) return Promise.resolve(token);
+    var stored=loadToken();
+    if(stored){ token=stored; return Promise.resolve(token); }
+
+    return loadGis().then(function(){
+      return new Promise(function(resolve,reject){
+        if(!tokenClient){
+          tokenClient=window.google.accounts.oauth2.initTokenClient({
+            client_id:CLIENT_ID, scope:SCOPE, callback:function(){},
+            error_callback:function(e){ reject(new Error((e&&e.message)||'サインインを中止しました')); }
+          });
+        }
+        tokenClient.callback=function(res){
+          if(!res||!res.access_token){ reject(new Error('サインインできませんでした')); return; }
+          token={accessToken:res.access_token,
+                 expiresAt:Date.now()+(((res.expires_in||3600)-60)*1000)};
+          saveToken(token); resolve(token);
+        };
+        tokenClient.requestAccessToken({prompt: interactive?'':'none'});
+      });
+    });
+  }
+
+  function api(url,opt,interactive){
+    opt=opt||{};
+    return getToken(!!interactive).then(function(t){
+      var h=Object.assign({},opt.headers||{},{Authorization:'Bearer '+t.accessToken});
+      return fetch(url,Object.assign({},opt,{headers:h})).then(function(res){
+        if(res.status!==401) return res;
+        // 保持していたトークンが失効していた。捨てて取り直す
+        token=null; saveToken(null);
+        return getToken(!!interactive).then(function(t2){
+          var h2=Object.assign({},opt.headers||{},{Authorization:'Bearer '+t2.accessToken});
+          return fetch(url,Object.assign({},opt,{headers:h2}));
+        });
+      });
+    });
+  }
+
+  function findFile(){
+    var u=API+'/files?q='+encodeURIComponent("name='"+FILE_NAME+"' and trashed=false")
+          +'&fields=files(id,name,version)&pageSize=5&orderBy=modifiedTime desc';
+    return api(u).then(function(res){
+      if(!res.ok) throw new Error('ドライブを参照できませんでした（'+res.status+'）');
+      return res.json();
+    }).then(function(b){ return (b.files&&b.files[0])||null; });
+  }
+
+  function remoteVersion(id){
+    return api(API+'/files/'+id+'?fields=version').then(function(res){
+      return res.ok?res.json():null;
+    }).then(function(b){ return b&&b.version?b.version:null; }).catch(function(){ return null; });
+  }
+
+  // アプリの全データを1つの入れ物にまとめる（ファイル書き出しと同じ形）
+  function snapshot(){
+    var store=collectAppData();
+    try{ store['v7_extra_sites']=JSON.stringify(sites); }catch(e){}
+    var deleted=[];
+    try{ var dl=LS.get('v7_deleted_sites'); if(dl) deleted=JSON.parse(dl); }catch(e){}
+    return {type:'tenken-backup', schemaVersion:3, savedAt:new Date().toISOString(),
+            sites:sites, deleted:deleted, store:store};
+  }
+
+  // 受け取った入れ物を書き戻す（下書きは端末ごとのものを残す）
+  function restore(data){
+    if(!data||!data.store) return false;
+    try{
+      var del=[];
+      for(var i=0;i<localStorage.length;i++){
+        var k=localStorage.key(i);
+        if(k&&k.indexOf('v7_')===0&&k.indexOf('v7_draft_')!==0) del.push(k);
+      }
+      del.forEach(function(k){ localStorage.removeItem(k); });
+    }catch(e){}
+    Object.keys(data.store).forEach(function(k){
+      try{ localStorage.setItem(k,data.store[k]); }catch(e){}
+    });
+    loadStorage(); renderHome();
+    return true;
+  }
+
+  function pull(){
+    return findFile().then(function(f){
+      if(!f) return null;
+      fileId=f.id;
+      return api(API+'/files/'+f.id+'?alt=media').then(function(res){
+        if(!res.ok) throw new Error('データを読み込めませんでした（'+res.status+'）');
+        return res.json();
+      }).then(function(data){ return {data:data, version:f.version||null}; });
+    });
+  }
+
+  function push(){
+    if(!ready) return Promise.resolve({status:'skipped'});
+    var data=snapshot();
+    var body=JSON.stringify(data);
+    var expected=lsGet(REV_KEY);
+
+    var start = fileId ? Promise.resolve(fileId) : findFile().then(function(f){ fileId=f?f.id:null; return fileId; });
+
+    return start.then(function(id){
+      if(!id){
+        // まだ無いので新しく作る
+        var boundary='b'+Date.now();
+        var multipart='--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'
+          +JSON.stringify({name:FILE_NAME,mimeType:'application/json',
+            description:'電気工作物点検アプリのデータです。アプリから読み書きされます。'})
+          +'\r\n--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'
+          +body+'\r\n--'+boundary+'--';
+        return api(UPLOAD+'/files?uploadType=multipart&fields=id,version',
+          {method:'POST',headers:{'Content-Type':'multipart/related; boundary='+boundary},body:multipart},true)
+          .then(function(res){
+            if(!res.ok) throw new Error('作成できませんでした（'+res.status+'）');
+            return res.json();
+          }).then(function(f){ fileId=f.id; lsSet(REV_KEY,f.version||''); return {status:'saved'}; });
+      }
+
+      // 版が分からないまま上書きしない（空データで潰す事故を防ぐ）
+      if(!expected) return remoteVersion(id).then(function(){ return {status:'conflict'}; });
+
+      return remoteVersion(id).then(function(cur){
+        if(cur&&cur!==expected) return {status:'conflict'};
+        // 中身が空なのに向こうに中身があるときは書かない
+        if((!data.sites||data.sites.length===0)){
+          return api(API+'/files/'+id+'?alt=media').then(function(r){
+            return r.ok?r.json():null;
+          }).then(function(remote){
+            if(remote&&remote.sites&&remote.sites.length>0) return {status:'conflict'};
+            return doPatch(id,body);
+          }).catch(function(){ return {status:'conflict'}; });
+        }
+        return doPatch(id,body);
+      });
+    }).catch(function(e){
+      if(isOffline(e)) return {status:'offline'};
+      return {status:'error', message:e.message};
+    });
+  }
+
+  function doPatch(id,body){
+    return api(UPLOAD+'/files/'+id+'?uploadType=media&fields=id,version',
+      {method:'PATCH',headers:{'Content-Type':'application/json'},body:body})
+      .then(function(res){
+        if(!res.ok) throw new Error('保存できませんでした（'+res.status+'）');
+        return res.json();
+      }).then(function(f){ lsSet(REV_KEY,f.version||''); return {status:'saved'}; });
+  }
+
+  // 保存はまとめて行う（操作のたびに送らない）
+  var timer=null;
+  function scheduleSync(){
+    if(!isConnected()||!ready) return;
+    if(timer) clearTimeout(timer);
+    timer=setTimeout(function(){ sync(); }, 1500);
+  }
+
+  function sync(){
+    if(!isConnected()||!ready||busy) return Promise.resolve();
+    busy=true; setStatus('同期中…');
+    return push().then(function(r){
+      if(r.status==='saved') setStatus('ドライブと同期済み');
+      else if(r.status==='offline') setStatus('オフライン（接続が戻ったら送ります）');
+      else if(r.status==='conflict') setStatus('ほかの端末の変更があります。読み込み直してください', true);
+      else if(r.status==='error') setStatus('同期できません：'+r.message, true);
+    }).catch(function(e){ setStatus('同期できません：'+e.message, true); })
+      .then(function(){ busy=false; });
+  }
+
+  function connect(){
+    setStatus('接続しています…');
+    return getToken(true).then(function(){
+      return pull();
+    }).then(function(got){
+      if(got&&got.data){
+        if(!confirm('ドライブに保存されたデータを読み込みます。\nこの端末の現在のデータは置き換わります。よろしいですか？')){
+          setStatus('');
+          return;
+        }
+        restore(got.data);
+        lsSet(REV_KEY,got.version||'');
+      }
+      lsSet(FLAG_KEY,'1');
+      ready=true;
+      if(!got){
+        // 向こうに何も無いので、この端末の内容を移す
+        return push().then(function(r){
+          if(r.status!=='saved') throw new Error('ドライブに保存できませんでした');
+        });
+      }
+    }).then(function(){
+      setStatus('ドライブと同期済み');
+      renderDriveUI();
+    }).catch(function(e){
+      setStatus('接続できません：'+e.message, true);
+      renderDriveUI();
+    });
+  }
+
+  function disconnect(){
+    if(!confirm('ドライブとの接続を解除します。\nこの端末のデータはそのまま残ります。よろしいですか？')) return;
+    lsDel(FLAG_KEY); lsDel(REV_KEY); lsDel(TOKEN_KEY);
+    token=null; fileId=null; ready=false;
+    setStatus('');
+    renderDriveUI();
+  }
+
+  // 起動時。つないでいたなら黙って読み直す
+  function boot(){
+    renderDriveUI();
+    if(!isConnected()) return;
+    setStatus('ドライブを読み込んでいます…');
+    pull().then(function(got){
+      if(got&&got.data){
+        restore(got.data);
+        lsSet(REV_KEY,got.version||'');
+      }
+      ready=true;
+      setStatus('ドライブと同期済み');
+    }).catch(function(e){
+      // 読めなかったときは、この端末の内容をそのまま使う。保存はしない
+      ready=false;
+      if(isOffline(e)) setStatus('オフライン（この端末のデータを表示しています）');
+      else setStatus('ドライブを読めませんでした。再接続してください', true);
+    }).then(renderDriveUI);
+  }
+
+  function setStatus(msg,warn){
+    var el=document.getElementById('driveStatus');
+    if(!el) return;
+    el.textContent=msg||'';
+    el.style.color=warn?'#c0392b':'var(--t3)';
+  }
+
+  function renderDriveUI(){
+    var on=isConnected();
+    var box=document.getElementById('driveButtons');
+    if(!box) return;
+    box.innerHTML = on
+      ? '<button class="btn-pv" style="width:100%;padding:12px;margin-bottom:8px" onclick="DRIVE.sync()">🔄 いま同期する</button>'
+        +'<button class="btn-pv" style="width:100%;padding:12px" onclick="DRIVE.disconnect()">接続を解除する</button>'
+      : '<button class="btn-nx" style="width:100%;padding:12px" onclick="DRIVE.connect()">Googleドライブに接続する</button>';
+    var badge=document.getElementById('driveBadge');
+    if(badge){
+      badge.textContent = on ? '接続中' : 'この端末のみ';
+      badge.style.color = on ? '#2f7d55' : '#a86a10';
+    }
+  }
+
+  window.addEventListener('online', function(){ if(isConnected()&&ready) sync(); });
+
+  return {connect:connect, disconnect:disconnect, sync:sync, boot:boot,
+          scheduleSync:scheduleSync, renderDriveUI:renderDriveUI,
+          isConnected:isConnected};
+})();
 
 // ══════════════════════════════════════════
 // 引き継ぎデータのバックアップ（書き出し／読み込み）

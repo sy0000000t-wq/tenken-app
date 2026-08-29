@@ -1,7 +1,7 @@
 // 電気工作物点検アプリ Service Worker
 // 方針: ネットワーク優先（オンライン時は常に最新を取得）、
 //       取得成功時にキャッシュ更新、オフライン時はキャッシュから返す。
-var CACHE = 'tenken-v4';
+var CACHE = 'tenken-v5';
 
 self.addEventListener('install', function(e){
   e.waitUntil(
