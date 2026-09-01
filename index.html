@@ -303,6 +303,7 @@ var vcState={}, issues=[], issSeq=1;
 var solarVcState={}; // 太陽光目視点検の状態
 var photos=[]; // 点検写真 [{id,title,data(dataURL)}]。localStorageには保存せずJSON/PDFに含める
 var stepDefs=[], stepDone=[], leakHist={};
+var lastPdfFileTitle=''; // 直近に組み立てた報告書のファイル名（◯年◯月度通常点検_物件名）
 var VC_GROUPS=[
   {cat:'電線路',items:['開閉器','支持物','電線','ケーブル','避雷器']},
   {cat:'キュービクル・電気室',items:['計器用変成器','開閉器・断路器','電力ヒューズ','遮断器','継電器・計器','碍子類','配線・電線支持物','変圧器','高圧コンデンサ','高圧リアクトル','接地装置','絶縁監視装置','施錠等']},
@@ -385,7 +386,7 @@ function loadStorage(){
 // ══════════════════════════════════════════
 // アプリの更新（キャッシュ削除）※点検データ・物件データは消さない
 // ══════════════════════════════════════════
-var APP_VERSION='2026-08-17a';
+var APP_VERSION='2026-08-24a';
 function refreshApp(){
   if(!confirm('アプリを最新版に更新します。\n（物件・点検データは消えません）\n\nよろしいですか？')) return;
   var done=function(){
@@ -1354,6 +1355,16 @@ function startInsp(siteId){
 }
 function pad(n){return n<10?'0'+n:''+n;}
 
+// 保存ファイル名に使う保存時刻。yyyymmddhhmm（例: 202608251005）
+function saveStamp(){
+  var d=new Date();
+  return ''+d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+pad(d.getHours())+pad(d.getMinutes());
+}
+// ファイル名に使えない文字を除く（/ : * ? " < > | ￥ など）
+function safeName(s){
+  return (s||'').replace(/[\\\/:*?"<>|￥]/g,'_').replace(/\s+/g,' ').trim();
+}
+
 // ══════════════════════════════════════════
 // 入力の自動保存（下書き）
 //   iPad等ではPDF表示や再起動でページが破棄され入力が消えることがあるため、
@@ -1515,8 +1526,8 @@ function exportJSON(){
   var data={schemaVersion:1, siteId:curId, siteName:site.name, savedAt:new Date().toISOString(), fields:{}, vcState:vcState, solarVc:solarVcState, issues:issues, issSeq:issSeq, signature:sigData, photos:photos};
   document.querySelectorAll('#stepWrap input, #stepWrap select, #stepWrap textarea').forEach(function(el){ if(el.id) data.fields[el.id]=(el.type==='checkbox')?(el.checked?'✓':''):el.value; });
   var text=JSON.stringify(data,null,2);
-  var dt=(document.getElementById('inspDate')||{}).value||new Date().toISOString().split('T')[0];
-  var fname=site.name+'_'+dt+'.json';
+  // 命名規則: 物件名_yyyymmddhhmm（保存した時刻）
+  var fname=safeName(site.name)+'_'+saveStamp()+'.json';
   var blob=new Blob([text],{type:'application/json'});
   // iPad/iPhoneはダウンロードでページが作り直されることがあるため、可能なら共有シートを使う
   try{
@@ -2589,10 +2600,10 @@ function exportAll(){
     data.inspection={siteId:curId, siteName:site?site.name:'', fields:fields,
       vcState:vcState, solarVc:solarVcState, issues:issues, issSeq:issSeq,
       signature:sigData, photos:photos, savedAt:data.savedAt};
-    var dt=(document.getElementById('inspDate')||{}).value||new Date().toISOString().split('T')[0];
-    fname=(site?site.name:'点検')+'_'+dt+'.json';
+    // 命名規則: 物件名_yyyymmddhhmm（保存した時刻）
+    fname=safeName(site?site.name:'点検')+'_'+saveStamp()+'.json';
   } else {
-    fname='点検データ_'+new Date().toISOString().split('T')[0]+'.json';
+    fname='点検データ_'+saveStamp()+'.json';
   }
   shareOrDownload(new Blob([JSON.stringify(data)],{type:'application/json'}), fname);
 }
@@ -2659,6 +2670,15 @@ function printReport(){
     titleMonth = freqN<=3 ? ms.join('・') : ms[0]+'～'+ms[ms.length-1];
   }
   var docTitle='電気工作物　通常点検（'+titleMonth+'）報告書';
+
+  // PDF保存時のファイル名。命名規則: ◯年◯月度通常点検_物件名
+  //   ブラウザの「PDFとして保存」は <title> を既定のファイル名に使うため、
+  //   紙面の見出し（docTitle）とは別にこちらを組み立てる。
+  //   年は点検日から取り、点検日が未入力なら今年を使う。
+  var inspY=(gv('inspDate')||'').slice(0,4);
+  if(!/^\d{4}$/.test(inspY)) inspY=''+new Date().getFullYear();
+  var pdfFileTitle=inspY+'年'+month+'月度通常点検_'+safeName(site.name);
+  lastPdfFileTitle=pdfFileTitle;   // iOSの印刷は親ページのタイトルを使うことがあるため控えておく
 
   var officeName=LS.get('v7_office_name')||'';
   var techName=LS.get('v7_tech_name')||gv('techName');
@@ -2890,9 +2910,14 @@ function printReport(){
           +'<td class="center" colspan="3">'+(lvBad?'計器不良':fmtNum(gv(eq.id+'_ipeak')))+'</td>'
           +'<td class="na">－</td><td class="na">－</td>';
       } else if(noM){
-        // コンデンサ等：電圧・電流は－（欄は結合しない／修正5）、負荷率・漏洩も－（修正3）
+        // コンデンサ等：電圧は測定しないので－。
+        // 電流は入力された値を記載する（未入力ならfmtNumが－を返す）。負荷率・漏洩は－（修正3）
         loadRows+=na3
-          +(eiBad?'<td class="center" colspan="3">計器不良</td>':na3)
+          +(eiBad
+            ?'<td class="center" colspan="3">計器不良</td>'
+            :'<td class="val">'+fmtNum(gv(eq.id+'_i_r'))+'</td>'
+             +'<td class="val">'+fmtNum(gv(eq.id+'_i_s'))+'</td>'
+             +'<td class="val">'+fmtNum(gv(eq.id+'_i_t'))+'</td>')
           +'<td class="na">－</td><td class="na">－</td>';
       } else {
         loadRows+=(evBad
@@ -3078,7 +3103,7 @@ function printReport(){
   var reportHTML='<!DOCTYPE html><html lang="ja"><head>'
     +'<meta charset="UTF-8">'
     +'<meta name="viewport" content="width=device-width,initial-scale=1.0">'
-    +'<title>'+esc(docTitle)+'</title>'
+    +'<title>'+esc(pdfFileTitle)+'</title>'
     +'<style>'
     +'@import url(\'https://fonts.googleapis.com/css2?family=BIZ+UDGothic:wght@400;700&display=swap\');'
     // 画面表示: 中央寄せ（flex中央寄せは左端が切れて見えなくなるため使わない）
@@ -3267,7 +3292,18 @@ function printReportFrame(){
   var d=fr.contentWindow.document;
   var imgs=Array.prototype.slice.call(d.images||[]);
   var pending=imgs.filter(function(im){ return !im.complete||!im.naturalWidth; });
-  var go=function(){ fr.contentWindow.focus(); fr.contentWindow.print(); };
+  // iOSの印刷は親ページの<title>を既定のファイル名に使うことがあるため、
+  // 印刷中だけ親のタイトルも報告書のファイル名に合わせる（印刷後に戻す）
+  var go=function(){
+    var prevTitle=document.title;
+    var restored=false;
+    var restore=function(){ if(restored) return; restored=true; document.title=prevTitle;
+      window.removeEventListener('afterprint',restore); };
+    if(lastPdfFileTitle) document.title=lastPdfFileTitle;
+    window.addEventListener('afterprint',restore);
+    setTimeout(restore,60000);
+    fr.contentWindow.focus(); fr.contentWindow.print();
+  };
   if(!pending.length){ go(); return; }
   var left=pending.length, done=false;
   var fire=function(){ if(--left<=0&&!done){ done=true; setTimeout(go,150); } };
