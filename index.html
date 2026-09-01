@@ -386,7 +386,7 @@ function loadStorage(){
 // ══════════════════════════════════════════
 // アプリの更新（キャッシュ削除）※点検データ・物件データは消さない
 // ══════════════════════════════════════════
-var APP_VERSION='2026-08-24a';
+var APP_VERSION='2026-09-01a';
 function refreshApp(){
   if(!confirm('アプリを最新版に更新します。\n（物件・点検データは消えません）\n\nよろしいですか？')) return;
   var done=function(){
@@ -570,17 +570,7 @@ var DRIVE = (function(){
   // 受け取った入れ物を書き戻す（下書きは端末ごとのものを残す）
   function restore(data){
     if(!data||!data.store) return false;
-    try{
-      var del=[];
-      for(var i=0;i<localStorage.length;i++){
-        var k=localStorage.key(i);
-        if(k&&k.indexOf('v7_')===0&&k.indexOf('v7_draft_')!==0) del.push(k);
-      }
-      del.forEach(function(k){ localStorage.removeItem(k); });
-    }catch(e){}
-    Object.keys(data.store).forEach(function(k){
-      try{ localStorage.setItem(k,data.store[k]); }catch(e){}
-    });
+    replaceStoredData(data.store);   // 接続情報と下書きはこの端末のものを残す
     loadStorage(); renderHome();
     return true;
   }
@@ -764,17 +754,42 @@ var DRIVE = (function(){
 //   設備登録に加え、前回値・漏洩電流の履歴・指摘・目視結果・コメントも含めるので
 //   iPad→iPhoneのように端末を変えても続きから点検できる
 // ══════════════════════════════════════════
+// その端末だけが持つべきキー。ドライブや引き継ぎファイルに含めず、読み込みでも消さない。
+//   v7_drive_* : ドライブの接続情報。ファイルに焼き付くと、期限切れの接続情報が
+//                読み込みのたびに復活して同期が外れる
+//   v7_draft_* : 入力途中の下書き。端末ごとに持つ
+function isDeviceOnlyKey(k){
+  return !k || k.indexOf('v7_draft_')===0 || k.indexOf('v7_drive_')===0;
+}
+
 function collectAppData(){
   var store={};
   try{
     for(var i=0;i<localStorage.length;i++){
       var k=localStorage.key(i);
       if(!k||k.indexOf('v7_')!==0) continue;
-      if(k.indexOf('v7_draft_')===0) continue; // 入力途中の下書きは持ち出さない
+      if(isDeviceOnlyKey(k)) continue;
       store[k]=localStorage.getItem(k);
     }
   }catch(e){}
   return store;
+}
+
+// 端末のv7_データをファイル／ドライブの内容で置き換える。
+// 端末固有のキー（接続情報・下書き）は消さず、取り込みもしない。
+function replaceStoredData(store){
+  try{
+    var del=[];
+    for(var i=0;i<localStorage.length;i++){
+      var k=localStorage.key(i);
+      if(k&&k.indexOf('v7_')===0&&!isDeviceOnlyKey(k)) del.push(k);
+    }
+    del.forEach(function(k){ localStorage.removeItem(k); });
+  }catch(e){}
+  Object.keys(store||{}).forEach(function(k){
+    if(isDeviceOnlyKey(k)) return;   // 古いファイルに接続情報が入っていても取り込まない
+    try{ localStorage.setItem(k, store[k]); }catch(e){}
+  });
 }
 // 設定画面からのバックアップも一括保存と同じ1ファイル形式（exportAllへ集約）
 function exportSites(){ exportAll(); }
@@ -863,18 +878,9 @@ function importSitesFile(input){
 function applyFullImport(data, isNew){
   try{
       if(isNew&&data.store){
-        // 既存のv7_データを消してから書き戻す（下書きは各端末のものを残す）
-        try{
-          var del=[];
-          for(var i=0;i<localStorage.length;i++){
-            var k=localStorage.key(i);
-            if(k&&k.indexOf('v7_')===0&&k.indexOf('v7_draft_')!==0) del.push(k);
-          }
-          del.forEach(function(k){ localStorage.removeItem(k); });
-        }catch(e2){}
-        Object.keys(data.store).forEach(function(k){
-          try{ localStorage.setItem(k, data.store[k]); }catch(e3){}
-        });
+        // 既存のv7_データを消してから書き戻す
+        // （ドライブの接続情報と入力途中の下書きは、各端末のものを残す）
+        replaceStoredData(data.store);
       } else {
         LS.set('v7_extra_sites', JSON.stringify(data.sites||[]));
         LS.set('v7_deleted_sites', JSON.stringify(data.deleted||[]));
