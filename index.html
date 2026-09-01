@@ -778,6 +778,40 @@ function collectAppData(){
 }
 // 設定画面からのバックアップも一括保存と同じ1ファイル形式（exportAllへ集約）
 function exportSites(){ exportAll(); }
+// 読み込み方法をたずねる画面。押されたボタンの value をコールバックで返す。
+//   confirm のキャンセル側に「全部置き換える」を割り当てると押し間違いが事故になるため、
+//   どちらも自分で選んでもらう形にする。
+function askImportMode(lines, buttons, cb){
+  var ov=document.createElement('div');
+  ov.className='no-print';
+  ov.style.cssText='position:fixed;inset:0;z-index:10000;background:rgba(15,23,42,.55);'
+    +'display:flex;align-items:center;justify-content:center;padding:18px';
+  var box=document.createElement('div');
+  box.style.cssText='background:#fff;border-radius:12px;max-width:460px;width:100%;'
+    +'padding:20px;box-shadow:0 12px 40px rgba(0,0,0,.3);text-align:left;'
+    +'max-height:90vh;overflow:auto';
+  var h='<div style="font-weight:700;font-size:16px;margin-bottom:10px;color:#0f172a">読み込み方法を選んでください</div>'
+    +'<div style="font-size:13px;line-height:1.7;color:#334155;margin-bottom:16px">'+lines+'</div>';
+  buttons.forEach(function(b){
+    h+='<button type="button" data-v="'+b.value+'" style="display:block;width:100%;padding:13px 14px;margin-bottom:9px;'
+      +'border-radius:9px;border:1px solid '+(b.primary?'#1d4ed8':'#cbd5e1')+';'
+      +'background:'+(b.primary?'#1d4ed8':'#fff')+';color:'+(b.primary?'#fff':'#0f172a')+';'
+      +'font-size:14px;font-weight:700;text-align:left;cursor:pointer;line-height:1.5">'
+      +b.label
+      +(b.sub?'<div style="font-weight:400;font-size:11.5px;margin-top:3px;opacity:.85">'+b.sub+'</div>':'')
+      +'</button>';
+  });
+  box.innerHTML=h;
+  ov.appendChild(box); document.body.appendChild(ov);
+  box.querySelectorAll('button').forEach(function(btn){
+    btn.onclick=function(){
+      var v=btn.getAttribute('data-v');
+      if(ov.parentNode) ov.parentNode.removeChild(ov);
+      cb(v);
+    };
+  });
+}
+
 function importSitesFile(input){
   var f=input.files&&input.files[0]; if(!f) return;
   var reader=new FileReader();
@@ -791,10 +825,43 @@ function importSitesFile(input){
       var isNew=(data.type==='tenken-backup'), isOld=(data.type==='tenken-sites-backup');
       if(!isNew&&!isOld){ alert('点検アプリのデータファイルではありません。'); return; }
       var n=Array.isArray(data.sites)?data.sites.length:0;
+
+      // 点検の続きが入っていて、その物件がこの端末にもある場合は、
+      // 「その点検だけ開く」か「まるごと置き換える」かを選べるようにする。
+      // 続きをするだけなら端末のデータに触る必要がない。
+      var insp=(isNew&&data.inspection&&data.inspection.siteId)?data.inspection:null;
+      var hasLocalSite=!!(insp&&sites.some(function(s){return s.id===insp.siteId;}));
+      if(insp&&hasLocalSite){
+        askImportMode(
+          '「<b>'+esc(insp.siteName||'')+'</b>」の点検内容が入ったファイルです。<br>'
+          +'点検の続きをするだけなら、上を選んでください。',
+          [{value:'insp', primary:true, label:'この点検だけ開く',
+            sub:'この端末の物件・前回値・指摘はそのまま。何も消えません'},
+           {value:'full', label:'端末のデータをすべて置き換える',
+            sub:'物件'+n+'件と前回値・指摘・目視結果をファイルの内容に入れ替えます（機種変更・端末の移行用）'},
+           {value:'cancel', label:'やめる'}],
+          function(mode){
+            if(mode==='cancel') return;
+            if(mode==='insp'){ loadFromJSON(insp); return; }
+            applyFullImport(data, isNew);
+          });
+        return;
+      }
+
       var msg=isNew
         ? '引き継ぎデータを読み込みます。\n・物件（設備登録）：'+n+'件\n・前回値／漏洩電流の履歴／指摘／目視結果／コメント\n\nこの端末の現在のデータは置き換わります。よろしいですか？'
         : '設備データを読み込みます。\n現在の物件一覧はこのファイルの内容（'+n+'物件）に置き換わります。よろしいですか？';
       if(!confirm(msg)) return;
+      applyFullImport(data, isNew);
+    }catch(err){ alert('読み込みに失敗しました：'+err.message); }
+  };
+  reader.readAsText(f);
+  input.value='';
+}
+
+// ファイルの内容で端末のデータをまるごと置き換える
+function applyFullImport(data, isNew){
+  try{
       if(isNew&&data.store){
         // 既存のv7_データを消してから書き戻す（下書きは各端末のものを残す）
         try{
@@ -821,10 +888,7 @@ function importSitesFile(input){
         }
       }
       alert('引き継ぎデータを読み込みました（物件'+sites.length+'件）。\n前回値や指摘も引き継がれています。');
-    }catch(err){ alert('読み込みに失敗しました：'+err.message); }
-  };
-  reader.readAsText(f);
-  input.value='';
+  }catch(err){ alert('読み込みに失敗しました：'+err.message); }
 }
 
 function resetStorage(){
