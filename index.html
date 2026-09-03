@@ -386,7 +386,7 @@ function loadStorage(){
 // ══════════════════════════════════════════
 // アプリの更新（キャッシュ削除）※点検データ・物件データは消さない
 // ══════════════════════════════════════════
-var APP_VERSION='2026-09-01a';
+var APP_VERSION='2026-09-03a';
 function refreshApp(){
   if(!confirm('アプリを最新版に更新します。\n（物件・点検データは消えません）\n\nよろしいですか？')) return;
   var done=function(){
@@ -654,12 +654,16 @@ var DRIVE = (function(){
     if(!isConnected()||!ready||busy) return Promise.resolve();
     busy=true; setStatus('同期中…');
     return push().then(function(r){
-      if(r.status==='saved') setStatus('ドライブと同期済み');
-      else if(r.status==='offline') setStatus('オフライン（接続が戻ったら送ります）');
+      if(r.status==='saved'){ health='ok'; setStatus('ドライブと同期済み'); }
+      else if(r.status==='offline'){ health='offline'; setStatus('オフライン（接続が戻ったら送ります）'); }
       else if(r.status==='conflict') setStatus('ほかの端末の変更があります。読み込み直してください', true);
       else if(r.status==='error') setStatus('同期できません：'+r.message, true);
-    }).catch(function(e){ setStatus('同期できません：'+e.message, true); })
-      .then(function(){ busy=false; });
+    }).catch(function(e){
+      // サインインし直しが要るときは、その旨を出す
+      if(isOffline(e)) health='offline';
+      else if(/サインイン|token|認証|401/i.test(e.message||'')) health='reauth';
+      setStatus('同期できません：'+e.message, true);
+    }).then(function(){ busy=false; renderDriveUI(); });
   }
 
   function connect(){
@@ -684,9 +688,11 @@ var DRIVE = (function(){
         });
       }
     }).then(function(){
+      health='ok';
       setStatus('ドライブと同期済み');
       renderDriveUI();
     }).catch(function(e){
+      health=isOffline(e)?'offline':'reauth';
       setStatus('接続できません：'+e.message, true);
       renderDriveUI();
     });
@@ -695,13 +701,14 @@ var DRIVE = (function(){
   function disconnect(){
     if(!confirm('ドライブとの接続を解除します。\nこの端末のデータはそのまま残ります。よろしいですか？')) return;
     lsDel(FLAG_KEY); lsDel(REV_KEY); lsDel(TOKEN_KEY);
-    token=null; fileId=null; ready=false;
+    token=null; fileId=null; ready=false; health='checking';
     setStatus('');
     renderDriveUI();
   }
 
   // 起動時。つないでいたなら黙って読み直す
   function boot(){
+    health='checking';
     renderDriveUI();
     if(!isConnected()) return;
     setStatus('ドライブを読み込んでいます…');
@@ -711,12 +718,18 @@ var DRIVE = (function(){
         lsSet(REV_KEY,got.version||'');
       }
       ready=true;
+      health='ok';
       setStatus('ドライブと同期済み');
     }).catch(function(e){
       // 読めなかったときは、この端末の内容をそのまま使う。保存はしない
       ready=false;
-      if(isOffline(e)) setStatus('オフライン（この端末のデータを表示しています）');
-      else setStatus('ドライブを読めませんでした。再接続してください', true);
+      if(isOffline(e)){
+        health='offline';
+        setStatus('オフライン（この端末のデータを表示しています）');
+      }else{
+        health='reauth';
+        setStatus('接続が切れています。下の「ドライブに接続し直す」を押してください', true);
+      }
     }).then(renderDriveUI);
   }
 
@@ -727,18 +740,36 @@ var DRIVE = (function(){
     el.style.color=warn?'#c0392b':'var(--t3)';
   }
 
+  // 表示用の状態。接続フラグだけでは「つないだつもりで実は使えない」を見分けられない
+  //   checking : 起動直後。まだドライブを読めていない
+  //   ok       : 読み書きできている
+  //   offline  : 電波がない。接続そのものは生きている
+  //   reauth   : 接続情報が切れた。つなぎ直しが必要
+  var health='checking';
+
   function renderDriveUI(){
     var on=isConnected();
     var box=document.getElementById('driveButtons');
     if(!box) return;
-    box.innerHTML = on
-      ? '<button class="btn-pv" style="width:100%;padding:12px;margin-bottom:8px" onclick="DRIVE.sync()">🔄 いま同期する</button>'
-        +'<button class="btn-pv" style="width:100%;padding:12px" onclick="DRIVE.disconnect()">接続を解除する</button>'
-      : '<button class="btn-nx" style="width:100%;padding:12px" onclick="DRIVE.connect()">Googleドライブに接続する</button>';
+    if(!on){
+      box.innerHTML='<button class="btn-nx" style="width:100%;padding:12px" onclick="DRIVE.connect()">Googleドライブに接続する</button>';
+    } else if(health==='reauth'){
+      // 切れているときは、つなぎ直しを一番押しやすい位置に出す
+      box.innerHTML='<button class="btn-nx" style="width:100%;padding:12px;margin-bottom:8px" onclick="DRIVE.connect()">🔑 ドライブに接続し直す</button>'
+        +'<button class="btn-pv" style="width:100%;padding:12px" onclick="DRIVE.disconnect()">接続を解除する</button>';
+    } else {
+      box.innerHTML='<button class="btn-pv" style="width:100%;padding:12px;margin-bottom:8px" onclick="DRIVE.sync()">🔄 いま同期する</button>'
+        +'<button class="btn-pv" style="width:100%;padding:12px" onclick="DRIVE.disconnect()">接続を解除する</button>';
+    }
     var badge=document.getElementById('driveBadge');
     if(badge){
-      badge.textContent = on ? '接続中' : 'この端末のみ';
-      badge.style.color = on ? '#2f7d55' : '#a86a10';
+      var v = !on               ? {t:'この端末のみ', c:'#a86a10'}
+            : health==='ok'     ? {t:'接続中',       c:'#2f7d55'}
+            : health==='offline'? {t:'オフライン',   c:'#a86a10'}
+            : health==='reauth' ? {t:'要再接続',     c:'#c0392b'}
+            :                     {t:'確認中…',      c:'#64748b'};
+      badge.textContent=v.t;
+      badge.style.color=v.c;
     }
   }
 
